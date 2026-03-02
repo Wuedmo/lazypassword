@@ -95,15 +95,6 @@ class EncryptionSelectionScreen(Screen):
         color: $text-muted;
         padding: 1 0;
     }
-    /* Small screens */
-    @media (max-width: 80, max-height: 24) {
-        EncryptionSelectionScreen #encryption-container {
-            max-width: 100%;
-            min-width: auto;
-            width: 100%;
-            padding: 0 1;
-            margin: 0;
-        }
         EncryptionSelectionScreen .plugin-item {
             padding: 0 1;
             margin: 0;
@@ -290,15 +281,6 @@ class SSHKeysScreen(Screen):
         color: $text-muted;
         padding: 1 0;
     }
-    /* Small screens */
-    @media (max-width: 80, max-height: 24) {
-        SSHKeysScreen #ssh-container {
-            max-width: 100%;
-            min-width: auto;
-            width: 100%;
-            padding: 0 1;
-            margin: 0;
-        }
     }
     """
 
@@ -453,15 +435,6 @@ class APIKeysScreen(Screen):
     APIKeysScreen #search-input {
         margin-bottom: 1;
     }
-    /* Small screens */
-    @media (max-width: 80, max-height: 24) {
-        APIKeysScreen #apikeys-container {
-            max-width: 100%;
-            min-width: auto;
-            width: 100%;
-            padding: 0 1;
-            margin: 0;
-        }
     }
     """
 
@@ -670,15 +643,6 @@ class APIKeyEditScreen(Screen):
         margin: 1 0;
         border: solid $primary-darken-2;
     }
-    /* Small screens */
-    @media (max-width: 80, max-height: 24) {
-        APIKeyEditScreen #edit-container {
-            max-width: 100%;
-            min-width: auto;
-            width: 100%;
-            padding: 0 1;
-            margin: 0;
-        }
     }
     """
 
@@ -955,15 +919,6 @@ class APIKeyDetailScreen(Screen):
     APIKeyDetailScreen .masked {
         color: $text-muted;
     }
-    /* Small screens */
-    @media (max-width: 80, max-height: 24) {
-        APIKeyDetailScreen #detail-container {
-            max-width: 100%;
-            min-width: auto;
-            width: 100%;
-            padding: 0 1;
-            margin: 0;
-        }
         APIKeyDetailScreen #copy-buttons {
             grid-size: 1;
         }
