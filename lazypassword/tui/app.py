@@ -743,7 +743,10 @@ class LazyPasswordApp(App):
         self._entries_cache = self._get_entries()
         table = self.query_one("#entry-list", DataTable)
         table.clear()
-        table.add_columns("Title", "Username", "URL", "Tags")
+        
+        # Only add columns if they don't exist yet
+        if not table.columns:
+            table.add_columns("Title", "Username", "URL", "Tags")
         
         for entry in self._entries_cache:
             tags = ", ".join(entry.tags) if entry.tags else ""
