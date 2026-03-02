@@ -281,6 +281,7 @@ mypy lazypassword/
 
 ### ⏳ Remaining
 - [ ] **API Key storage** — Support multiple formats (OpenAI, AWS, Stripe, custom headers, etc.)
+- [ ] **README overhaul** — Update with latest features, complete hotkey reference, and add screenshots (FirstRun/Unlocking sections are obsolete)
 - [ ] Plugin system
 - [ ] Remote sync (optional, encrypted) — postponed
 
