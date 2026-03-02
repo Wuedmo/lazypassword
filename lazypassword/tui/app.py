@@ -72,13 +72,29 @@ class FirstRunScreen(Screen):
         align: center middle;
     }
     #first-run-container {
-        width: 60;
+        width: auto;
+        min-width: 40;
+        max-width: 50;
         height: auto;
+        max-height: 90%;
         border: solid green;
-        padding: 1 2;
+        padding: 1;
+    }
+    .form-hint {
+        text-align: center;
+        color: $text-muted;
+        padding: 1 0;
+    }
+    /* Small screens: reduce padding */
+    @media (max-width: 80, max-height: 24) {
+        #first-run-container {
+            padding: 0 1;
+            max-width: 100%;
+            min-width: auto;
+        }
     }
     """
-    
+
     def compose(self) -> ComposeResult:
         with Container(id="first-run-container"):
             yield Label("Welcome to LazyPassword! 🔐", classes="title")
@@ -94,18 +110,18 @@ class FirstRunScreen(Screen):
             )
             yield Label("  Select a file to use as an additional authentication factor.")
             yield Label("")
-            yield Button("Create Vault", id="create-btn", variant="primary")
-    
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        """Handle create vault button."""
-        if event.button.id == "create-btn":
-            self._create_vault()
+            yield Label("Press [b]ENTER[/b] to create vault • [b]ESC[/b] to exit", classes="form-hint")
     
     def on_input_submitted(self, event: Input.Submitted) -> None:
         """Handle Enter key in password input."""
         if event.input.id == "password-input":
             self._create_vault()
-    
+
+    def on_key(self, event) -> None:
+        """Handle Escape key to exit."""
+        if event.key == "escape":
+            self.dismiss(None)
+
     def on_click(self, event) -> None:
         """Handle clicks on the checkbox area."""
         # Check if click was on keyfile row
@@ -140,21 +156,37 @@ class UnlockScreen(Screen):
         align: center middle;
     }
     #unlock-container {
-        width: 50;
+        width: auto;
+        min-width: 35;
+        max-width: 40;
         height: auto;
+        max-height: 90%;
         border: solid blue;
-        padding: 1 2;
+        padding: 1;
     }
     #keyfile-indicator {
         color: yellow;
         text-style: italic;
     }
+    .form-hint {
+        text-align: center;
+        color: $text-muted;
+        padding: 1 0;
+    }
+    /* Small screens: reduce padding */
+    @media (max-width: 80, max-height: 24) {
+        #unlock-container {
+            padding: 0 1;
+            max-width: 100%;
+            min-width: auto;
+        }
+    }
     """
-    
+
     def __init__(self, requires_keyfile: bool = False) -> None:
         super().__init__()
         self.requires_keyfile = requires_keyfile
-    
+
     def compose(self) -> ComposeResult:
         with Container(id="unlock-container"):
             yield Label("🔐 Unlock Vault", classes="title")
@@ -163,17 +195,17 @@ class UnlockScreen(Screen):
             yield Label("")
             yield Input(placeholder="Master password...", password=True, id="password-input")
             yield Label("")
-            yield Button("Unlock", id="unlock-btn", variant="primary")
-    
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        """Handle unlock button."""
-        if event.button.id == "unlock-btn":
-            self._unlock()
+            yield Label("Press [b]ENTER[/b] to unlock • [b]ESC[/b] to exit", classes="form-hint")
     
     def on_input_submitted(self, event: Input.Submitted) -> None:
         """Handle Enter key in password input."""
         if event.input.id == "password-input":
             self._unlock()
+
+    def on_key(self, event) -> None:
+        """Handle Escape key to exit."""
+        if event.key == "escape":
+            self.dismiss(None)
     
     def _unlock(self) -> None:
         """Unlock with entered password."""
@@ -186,16 +218,42 @@ class UnlockScreen(Screen):
 
 class EntryEditScreen(Screen):
     """Screen for creating/editing entries."""
-    
+
     DEFAULT_CSS = """
     EntryEditScreen {
         align: center middle;
     }
     #edit-container {
-        width: 70;
+        width: auto;
+        min-width: 50;
+        max-width: 70;
         height: auto;
+        max-height: 95%;
         border: solid yellow;
-        padding: 1 2;
+        padding: 1;
+        overflow: auto;
+    }
+    /* Small screens: full width, minimal padding */
+    @media (max-width: 80, max-height: 24) {
+        #edit-container {
+            max-width: 100%;
+            min-width: auto;
+            width: 100%;
+            padding: 0 1;
+            margin: 0;
+        }
+    }
+    /* Medium screens */
+    @media (max-width: 120) {
+        #edit-container {
+            max-width: 90%;
+            padding: 0 1;
+        }
+    }
+    .form-hint {
+        text-align: center;
+        color: $text-muted;
+        padding: 1 0;
     }
     """
     
@@ -223,21 +281,16 @@ class EntryEditScreen(Screen):
             yield Label("Tags (comma-separated):")
             yield Input(value=",".join(self.entry.tags), id="tags-input")
             yield Label("")
-            yield Horizontal(
-                Button("Save", id="save-btn", variant="primary"),
-                Button("Cancel", id="cancel-btn"),
-            )
-    
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        """Handle button presses."""
-        if event.button.id == "cancel-btn":
-            self.dismiss(None)
-        elif event.button.id == "save-btn":
-            self._save_entry()
+            yield Label("Press [b]ENTER[/b] to save • [b]ESC[/b] to cancel", classes="form-hint")
     
     def on_input_submitted(self, event: Input.Submitted) -> None:
         """Handle Enter key in any input field - save the entry."""
         self._save_entry()
+
+    def on_key(self, event) -> None:
+        """Handle Escape key to cancel."""
+        if event.key == "escape":
+            self.dismiss(None)
     
     def _save_entry(self) -> None:
         """Save the entry from form values."""
@@ -254,16 +307,35 @@ class EntryEditScreen(Screen):
 
 class ConfirmScreen(Screen[bool]):
     """Confirmation dialog screen."""
-    
+
     DEFAULT_CSS = """
     ConfirmScreen {
         align: center middle;
     }
     #confirm-container {
-        width: 50;
+        width: auto;
+        min-width: 30;
+        max-width: 60;
         height: auto;
+        max-height: 80%;
         border: solid red;
-        padding: 1 2;
+        padding: 1;
+    }
+    #confirm-message {
+        text-wrap: wrap;
+    }
+    /* Small screens */
+    @media (max-width: 80, max-height: 24) {
+        #confirm-container {
+            max-width: 100%;
+            min-width: auto;
+            padding: 0 1;
+        }
+    }
+    .form-hint {
+        text-align: center;
+        color: $text-muted;
+        padding: 1 0;
     }
     """
     
@@ -277,14 +349,7 @@ class ConfirmScreen(Screen[bool]):
             yield Label("")
             yield Label(self.message)
             yield Label("")
-            yield Horizontal(
-                Button("Yes", id="yes-btn", variant="error"),
-                Button("No", id="no-btn"),
-            )
-    
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        """Handle button press."""
-        self.dismiss(event.button.id == "yes-btn")
+            yield Label("Press [b]ENTER[/b] for Yes • [b]ESC[/b] for No", classes="form-hint")
     
     def on_key(self, event) -> None:
         """Handle keyboard shortcuts - Enter confirms, Escape cancels."""
@@ -296,20 +361,53 @@ class ConfirmScreen(Screen[bool]):
 
 class ThemeSettingsScreen(Screen):
     """Screen for selecting and configuring themes."""
-    
+
     DEFAULT_CSS = """
     ThemeSettingsScreen {
         align: center middle;
     }
     #theme-container {
-        width: 60;
+        width: auto;
+        min-width: 40;
+        max-width: 60;
         height: auto;
+        max-height: 90%;
         border: solid purple;
-        padding: 1 2;
+        padding: 1;
     }
     #theme-list {
         width: 100%;
         height: auto;
+        layout: grid;
+        grid-size: 2;
+        grid-columns: 1fr 1fr;
+        grid-rows: auto;
+        grid-gutter: 1;
+    }
+    #theme-list Button {
+        width: 100%;
+    }
+    /* Small screens: single column layout */
+    @media (max-width: 80, max-height: 24) {
+        #theme-container {
+            max-width: 100%;
+            min-width: auto;
+            padding: 0 1;
+        }
+        #theme-list {
+            grid-size: 1;
+        }
+    }
+    /* Large screens: more columns */
+    @media (min-width: 120) {
+        #theme-list {
+            grid-size: 3;
+        }
+    }
+    .form-hint {
+        text-align: center;
+        color: $text-muted;
+        padding: 1 0;
     }
     """
     
@@ -326,20 +424,18 @@ class ThemeSettingsScreen(Screen):
             yield Label(f"Current theme: {self.current_theme}")
             yield Label("")
             yield Label("Select theme:")
-            
+
             for theme in self.THEMES:
                 selected = " ✓" if theme == self.current_theme else ""
                 yield Button(f"{theme}{selected}", id=f"theme-{theme}")
-            
+
             yield Label("")
-            yield Button("Close", id="close-btn", variant="primary")
-    
+            yield Label("Press [b]ENTER[/b] to select • [b]ESC[/b] to close", classes="form-hint")
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle theme selection."""
         button_id = event.button.id
-        if button_id == "close-btn":
-            self.dismiss(None)
-        elif button_id and button_id.startswith("theme-"):
+        if button_id and button_id.startswith("theme-"):
             theme = button_id.replace("theme-", "")
             self.dismiss(theme)
     
@@ -351,10 +447,25 @@ class ThemeSettingsScreen(Screen):
 
 class HistoryPanel(Static):
     """Panel showing git version history."""
-    
-    def compose(self) -> ComposeResult:
-        yield Label("📜 History", id="history-title")
-        yield ListView(id="history-list")
+
+    DEFAULT_CSS = """
+    HistoryPanel {
+        height: 100%;
+        max-height: 100%;
+        overflow: auto;
+    }
+    #history-list {
+        height: auto;
+        max-height: 95%;
+        overflow: auto;
+    }
+    /* Small screens: compress title */
+    @media (max-width: 100, max-height: 24) {
+        HistoryPanel {
+            display: none;
+        }
+    }
+    """
     
     def update_history(self, versions: list) -> None:
         """Update the history list with versions."""
@@ -369,16 +480,20 @@ class HistoryPanel(Static):
 
 class ImportScreen(Screen[dict]):
     """Screen for importing entries from a JSON file."""
-    
+
     DEFAULT_CSS = """
     ImportScreen {
         align: center middle;
     }
     #import-container {
-        width: 70;
+        width: auto;
+        min-width: 50;
+        max-width: 70;
         height: auto;
+        max-height: 90%;
         border: solid green;
-        padding: 1 2;
+        padding: 1;
+        overflow: auto;
     }
     #import-file-input {
         width: 100%;
@@ -389,8 +504,23 @@ class ImportScreen(Screen[dict]):
     #duplicate-select {
         width: 100%;
     }
+    .form-hint {
+        text-align: center;
+        color: $text-muted;
+        padding: 1 0;
+    }
+    /* Small screens */
+    @media (max-width: 80, max-height: 24) {
+        #import-container {
+            max-width: 100%;
+            min-width: auto;
+            width: 100%;
+            padding: 0 1;
+            margin: 0;
+        }
+    }
     """
-    
+
     def compose(self) -> ComposeResult:
         with Container(id="import-container"):
             yield Label("📥 Import Entries", classes="title")
@@ -422,17 +552,14 @@ class ImportScreen(Screen[dict]):
                 id="duplicate-select",
             )
             yield Label("")
-            yield Horizontal(
-                Button("Import", id="import-btn", variant="primary"),
-                Button("Cancel", id="cancel-btn"),
-            )
-    
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        """Handle button presses."""
-        if event.button.id == "cancel-btn":
-            self.dismiss(None)
-        elif event.button.id == "import-btn":
+            yield Label("Press [b]ENTER[/b] to import • [b]ESC[/b] to cancel", classes="form-hint")
+
+    def on_key(self, event) -> None:
+        """Handle Enter to import, Escape to cancel."""
+        if event.key == "enter":
             self._do_import()
+        elif event.key == "escape":
+            self.dismiss(None)
     
     def _do_import(self) -> None:
         """Perform the import."""
@@ -472,19 +599,38 @@ class ImportScreen(Screen[dict]):
 
 class ExportScreen(Screen[dict]):
     """Screen for exporting entries to a JSON file."""
-    
+
     DEFAULT_CSS = """
     ExportScreen {
         align: center middle;
     }
     #export-container {
-        width: 70;
+        width: auto;
+        min-width: 50;
+        max-width: 70;
         height: auto;
+        max-height: 90%;
         border: solid blue;
-        padding: 1 2;
+        padding: 1;
+        overflow: auto;
     }
     #export-file-input {
         width: 100%;
+    }
+    .form-hint {
+        text-align: center;
+        color: $text-muted;
+        padding: 1 0;
+    }
+    /* Small screens */
+    @media (max-width: 80, max-height: 24) {
+        #export-container {
+            max-width: 100%;
+            min-width: auto;
+            width: 100%;
+            padding: 0 1;
+            margin: 0;
+        }
     }
     """
     
@@ -525,17 +671,14 @@ class ExportScreen(Screen[dict]):
                 Input(value="yes", id="include-passwords"),
             )
             yield Label("")
-            yield Horizontal(
-                Button("Export", id="export-btn", variant="primary"),
-                Button("Cancel", id="cancel-btn"),
-            )
-    
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        """Handle button presses."""
-        if event.button.id == "cancel-btn":
-            self.dismiss(None)
-        elif event.button.id == "export-btn":
+            yield Label("Press [b]ENTER[/b] to export • [b]ESC[/b] to cancel", classes="form-hint")
+
+    def on_key(self, event) -> None:
+        """Handle Enter to export, Escape to cancel."""
+        if event.key == "enter":
             self._do_export()
+        elif event.key == "escape":
+            self.dismiss(None)
     
     def _do_export(self) -> None:
         """Perform the export."""
@@ -642,10 +785,12 @@ class LazyPasswordApp(App):
     }
     #entry-list {
         height: 1fr;
-        width: 70%;
+        width: 1fr;
+        min-width: 50;
     }
     #history-panel {
-        width: 30%;
+        width: 1fr;
+        max-width: 40;
         height: 1fr;
         border: solid $primary-darken-2;
         padding: 0 1;
@@ -658,6 +803,7 @@ class LazyPasswordApp(App):
     #history-list {
         height: 1fr;
         width: 100%;
+        overflow: auto;
     }
     .history-item {
         padding: 0 1;
@@ -686,9 +832,59 @@ class LazyPasswordApp(App):
     }
     #status-content Label {
         width: 1fr;
+        min-width: 10;
+        text-overflow: ellipsis;
     }
     .title {
         text-style: bold;
+    }
+    /* Small terminals (<100 width): Hide history panel */
+    @media (max-width: 100) {
+        #history-panel {
+            display: none;
+        }
+        #entry-list {
+            width: 100%;
+        }
+    }
+    /* Medium terminals (100-150): Side-by-side with 70/30 split */
+    @media (min-width: 100, max-width: 150) {
+        #entry-list {
+            width: 70%;
+        }
+        #history-panel {
+            width: 30%;
+            display: block;
+        }
+    }
+    /* Large terminals (>150): Side-by-side with 60/40 split */
+    @media (min-width: 150) {
+        #entry-list {
+            width: 60%;
+        }
+        #history-panel {
+            width: 40%;
+            display: block;
+        }
+    }
+    /* Short terminals (<24 height): Ensure status bar visibility */
+    @media (max-height: 24) {
+        StatusBar {
+            height: 1;
+        }
+        #history-panel {
+            max-height: 80%;
+        }
+    }
+    /* Very short terminals (<15 height): Compact mode */
+    @media (max-height: 15) {
+        #history-panel {
+            display: none;
+        }
+        #entry-list {
+            width: 100%;
+            height: 100%;
+        }
     }
     """
     
