@@ -3,18 +3,9 @@
 __version__ = "0.1.0"
 __author__ = "WdmMaster"
 
-from .utils import PasswordGenerator, ClipboardManager
-from .import_export import VaultImporter, VaultExporter, ImportFormat, DuplicateHandling
-from .ssh_manager import SSHManager, SSHKey
+# Lazy imports to avoid Windows editable install issues
+def _lazy_import(name):
+    import importlib
+    return importlib.import_module(f"." + name, package=__name__)
 
-__all__ = [
-    "__version__",
-    "PasswordGenerator",
-    "ClipboardManager",
-    "VaultImporter",
-    "VaultExporter",
-    "ImportFormat",
-    "DuplicateHandling",
-    "SSHManager",
-    "SSHKey",
-]
+__all__ = ["__version__"]
