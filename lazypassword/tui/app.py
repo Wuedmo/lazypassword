@@ -29,7 +29,7 @@ from ..versioning import GitVersioning, VaultVersion
 from ..ssh_manager import SSHManager
 from ..import_export import VaultExporter, VaultImporter, DuplicateHandling, ImportFormat
 from ..api_key import APIKeyManager
-from .screens import APIKeysScreen
+from .screens import APIKeysScreen, SSHKeysScreen, EncryptionSelectionScreen
 
 
 class StatusBar(Static):
@@ -610,6 +610,10 @@ class LazyPasswordApp(App):
         ("/", "search", "Search"),
         ("t", "theme", "Theme"),
         ("a", "api_keys", "API Keys"),
+        ("s", "ssh_keys", "SSH Keys"),
+        ("p", "encryption", "Encryption"),
+        ("ctrl+i", "import_vault", "Import"),
+        ("ctrl+e", "export_vault", "Export"),
         ("v", "toggle_history", "Toggle History"),
         ("g", "show_history", "Git History"),
         ("l", "lock", "Lock"),
@@ -915,13 +919,17 @@ class LazyPasswordApp(App):
             "/ - Search\n"
             "t - Theme settings\n"
             "a - API Keys\n"
+            "s - SSH Keys\n"
+            "p - Encryption settings\n"
+            "^i - Import vault\n"
+            "^e - Export vault\n"
             "v - Toggle history panel\n"
             "g - Show git history\n"
             "l - Lock vault\n"
             "h - Help\n"
             "q - Quit",
             severity="information",
-            timeout=10,
+            timeout=15,
         )
     
     def action_quit(self) -> None:
@@ -962,6 +970,66 @@ class LazyPasswordApp(App):
             return
         
         self.push_screen(APIKeysScreen(self.api_key_manager))
+    
+    def action_ssh_keys(self) -> None:
+        """Open SSH keys management screen."""
+        if self._locked or not self.vault:
+            return
+        
+        self.push_screen(SSHKeysScreen())
+    
+    def action_encryption(self) -> None:
+        """Open encryption settings screen."""
+        if self._locked or not self.vault:
+            return
+        
+        current_plugin = self.vault.get_encryption_plugin()
+        self.push_screen(EncryptionSelectionScreen(current_plugin))
+    
+    def action_import_vault(self) -> None:
+        """Open import screen."""
+        if self._locked or not self.vault:
+            return
+        
+        self.push_screen(ImportScreen(), callback=self._on_import)
+    
+    def action_export_vault(self) -> None:
+        """Open export screen."""
+        if self._locked or not self.vault:
+            return
+        
+        self.push_screen(ExportScreen(), callback=self._on_export)
+    
+    def _on_import(self, result: Optional[dict]) -> None:
+        """Handle import result."""
+        if result and self.vault:
+            try:
+                file_path = result.get("file_path", "")
+                fmt = result.get("format", "lazypassword")
+                duplicate_handling = result.get("duplicate_handling", "skip")
+                
+                importer = VaultImporter(self.vault)
+                stats = importer.import_from_file(file_path, fmt, duplicate_handling)
+                
+                self.notify(f"Imported {stats['imported']} entries ({stats['skipped']} skipped, {stats['merged']} merged)", severity="information")
+                self._refresh_entry_list()
+                self._commit_vault_change(f"Imported entries from {file_path}")
+            except Exception as e:
+                self.notify(f"Import failed: {e}", severity="error")
+    
+    def _on_export(self, result: Optional[dict]) -> None:
+        """Handle export result."""
+        if result and self.vault:
+            try:
+                file_path = result.get("file_path", "")
+                fmt = result.get("format", "lazypassword")
+                
+                exporter = VaultExporter(self.vault)
+                exporter.export_to_file(file_path, fmt)
+                
+                self.notify(f"Exported vault to {file_path}", severity="information")
+            except Exception as e:
+                self.notify(f"Export failed: {e}", severity="error")
     
     def action_toggle_history(self) -> None:
         """Toggle history panel visibility."""
