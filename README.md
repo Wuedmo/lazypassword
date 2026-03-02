@@ -80,7 +80,7 @@ lazypassword --help       # Show all options
 On first launch, you'll be prompted to create a master password (minimum 12 characters). You can optionally enable keyfile support for additional security.
 
 <p align="center">
-  <img src="docs/screenshots/first-run.png" alt="First run screen" width="500">
+  <img src="docs/screenshots/unlock.png" alt="Unlock vault screen" width="500">
 </p>
 
 ### Daily Usage
