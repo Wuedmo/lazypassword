@@ -274,9 +274,12 @@ mypy lazypassword/
 - [x] TOTP/2FA support
 - [x] JSON import/export
 - [x] SSH key storage
-- [ ] **Encryption algorithm selection** — Choose cipher at vault creation (AES-256-GCM, ChaCha20-Poly1305, etc.)
+- [x] **Encryption algorithm selection** — Plugin-based encryption with AES-256-GCM and ChaCha20-Poly1305
+- [ ] **Responsive design** — Fix scrolling issues, optimize layout for different terminal sizes
+- [ ] **Remove buttons** — Replace Submit/Cancel buttons with "Press ENTER/ESC" hints
 - [ ] **API Key storage** — Support multiple formats (OpenAI, AWS, Stripe, custom headers, etc.)
 - [ ] Plugin system
+- [ ] Remote sync (optional, encrypted) — postponed
 - [ ] Remote sync (optional, encrypted) — postponed
 
 ---
