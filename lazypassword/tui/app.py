@@ -136,7 +136,8 @@ class FirstRunScreen(Screen):
         password = password_input.value
         
         checkbox = self.query_one("#keyfile-checkbox", Label)
-        use_keyfile = "✓" in str(checkbox.renderable)
+        checkbox_text = checkbox.render() if hasattr(checkbox, 'render') else str(checkbox)
+        use_keyfile = "✓" in checkbox_text
         
         if len(password) >= 12:
             result = {"password": password, "use_keyfile": use_keyfile}
