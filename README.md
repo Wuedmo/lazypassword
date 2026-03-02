@@ -28,12 +28,16 @@
 
 ## 📦 Installation
 
-### From Source
+### Linux / macOS
 
 ```bash
 # Clone the repository
 git clone https://github.com/Wuedmo/lazypassword.git
 cd lazypassword
+
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate
 
 # Install dependencies
 pip install -e .
@@ -42,11 +46,51 @@ pip install -e .
 poetry install
 ```
 
+### Windows (WSL - Recommended)
+
+lazypassword works best on Windows via WSL (Windows Subsystem for Linux):
+
+```powershell
+# Install WSL (if not already installed)
+wsl --install
+
+# Open WSL terminal, then:
+git clone https://github.com/Wuedmo/lazypassword.git
+cd lazypassword
+
+python3 -m venv venv
+source venv/bin/activate
+pip install -e .
+```
+
+### Windows (Native - Experimental)
+
+Native Windows support is experimental. Requires Windows Terminal for best experience:
+
+```powershell
+# Clone repository
+git clone https://github.com/Wuedmo/lazypassword.git
+cd lazypassword
+
+# Create virtual environment
+python -m venv venv
+venv\Scripts\activate
+
+# Install dependencies
+pip install -e .
+
+# Run
+lazypassword
+```
+
+**Note:** Clipboard integration on native Windows requires `pywin32` (usually installed automatically with `pyperclip`).
+
 ### System Requirements
 
 - Python 3.8+
-- Linux, macOS, or Windows (via WSL)
+- Linux, macOS, or Windows (WSL recommended)
 - 64-bit OS recommended
+- Terminal with Unicode support (Windows Terminal recommended on Windows)
 
 ---
 
