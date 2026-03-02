@@ -435,7 +435,6 @@ class APIKeysScreen(Screen):
     APIKeysScreen #search-input {
         margin-bottom: 1;
     }
-    }
     """
 
     BINDINGS = [
