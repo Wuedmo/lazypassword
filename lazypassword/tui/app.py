@@ -5,7 +5,7 @@ import signal
 from typing import Optional, List
 
 from textual.app import App, ComposeResult
-from textual.containers import Container, Horizontal, Vertical, VerticalScroll
+from textual.containers import Container, Horizontal, Vertical, VerticalScroll, Grid
 from textual.reactive import reactive
 from textual.timer import Timer
 from textual.widgets import (
