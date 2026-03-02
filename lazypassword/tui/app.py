@@ -28,6 +28,7 @@ from ..utils.clipboard import ClipboardManager
 from ..versioning import GitVersioning, VaultVersion
 from ..ssh_manager import SSHManager
 from ..import_export import VaultExporter, VaultImporter, DuplicateHandling, ImportFormat
+from ..api_key import APIKeyManager
 from .screens import APIKeysScreen
 
 
@@ -617,6 +618,7 @@ class LazyPasswordApp(App):
         self.readonly = readonly
         self.vault: Optional[Vault] = None
         self.versioning: Optional[GitVersioning] = None
+        self.api_key_manager: Optional[APIKeyManager] = None
         self._locked = True
         self._clipboard_timer: Optional[Timer] = None
         self._inactivity_timer: Optional[Timer] = None
@@ -664,6 +666,8 @@ class LazyPasswordApp(App):
                 self.versioning.initialize()
                 self.versioning.commit("Initial vault creation")
                 
+                self.api_key_manager = APIKeyManager(self.vault)
+                
                 self._load_and_apply_theme()
                 self._start_timers()
                 self._refresh_entry_list()
@@ -687,6 +691,8 @@ class LazyPasswordApp(App):
                     if not self.versioning.is_initialized():
                         self.versioning.initialize()
                         self.versioning.commit("Initialize versioning for existing vault")
+                    
+                    self.api_key_manager = APIKeyManager(self.vault)
                     
                     self._load_and_apply_theme()
                     self._start_timers()
@@ -941,10 +947,10 @@ class LazyPasswordApp(App):
     
     def action_api_keys(self) -> None:
         """Open API keys management screen."""
-        if self._locked or not self.vault:
+        if self._locked or not self.vault or not self.api_key_manager:
             return
         
-        self.push_screen(APIKeysScreen())
+        self.push_screen(APIKeysScreen(self.api_key_manager))
     
     def action_toggle_history(self) -> None:
         """Toggle history panel visibility."""
