@@ -28,7 +28,6 @@ from ..utils.clipboard import ClipboardManager
 from ..versioning import GitVersioning, VaultVersion
 from ..ssh_manager import SSHManager
 from ..import_export import VaultExporter, VaultImporter, DuplicateHandling, ImportFormat
-from .screens import EncryptionSelectionScreen
 
 
 class StatusBar(Static):
@@ -85,14 +84,6 @@ class FirstRunScreen(Screen):
         color: $text-muted;
         padding: 1 0;
     }
-    /* Small screens: reduce padding */
-    @media (max-width: 80, max-height: 24) {
-        #first-run-container {
-            padding: 0 1;
-            max-width: 100%;
-            min-width: auto;
-        }
-    }
     """
 
     def compose(self) -> ComposeResult:
@@ -124,7 +115,6 @@ class FirstRunScreen(Screen):
 
     def on_click(self, event) -> None:
         """Handle clicks on the checkbox area."""
-        # Check if click was on keyfile row
         checkbox = self.query_one("#keyfile-checkbox", Label)
         current = checkbox.renderable
         if "✓" in str(current):
@@ -173,14 +163,6 @@ class UnlockScreen(Screen):
         color: $text-muted;
         padding: 1 0;
     }
-    /* Small screens: reduce padding */
-    @media (max-width: 80, max-height: 24) {
-        #unlock-container {
-            padding: 0 1;
-            max-width: 100%;
-            min-width: auto;
-        }
-    }
     """
 
     def __init__(self, requires_keyfile: bool = False) -> None:
@@ -201,7 +183,7 @@ class UnlockScreen(Screen):
         """Handle Enter key in password input."""
         if event.input.id == "password-input":
             self._unlock()
-
+    
     def on_key(self, event) -> None:
         """Handle Escape key to exit."""
         if event.key == "escape":
@@ -212,13 +194,12 @@ class UnlockScreen(Screen):
         password_input = self.query_one("#password-input", Input)
         password = password_input.value
         if password:
-            result = {"password": password, "needs_keyfile": self.requires_keyfile}
-            self.dismiss(result)
+            self.dismiss(password)
 
 
 class EntryEditScreen(Screen):
     """Screen for creating/editing entries."""
-
+    
     DEFAULT_CSS = """
     EntryEditScreen {
         align: center middle;
@@ -230,25 +211,8 @@ class EntryEditScreen(Screen):
         height: auto;
         max-height: 95%;
         border: solid yellow;
-        padding: 1;
+        padding: 1 2;
         overflow: auto;
-    }
-    /* Small screens: full width, minimal padding */
-    @media (max-width: 80, max-height: 24) {
-        #edit-container {
-            max-width: 100%;
-            min-width: auto;
-            width: 100%;
-            padding: 0 1;
-            margin: 0;
-        }
-    }
-    /* Medium screens */
-    @media (max-width: 120) {
-        #edit-container {
-            max-width: 90%;
-            padding: 0 1;
-        }
     }
     .form-hint {
         text-align: center;
@@ -286,7 +250,7 @@ class EntryEditScreen(Screen):
     def on_input_submitted(self, event: Input.Submitted) -> None:
         """Handle Enter key in any input field - save the entry."""
         self._save_entry()
-
+    
     def on_key(self, event) -> None:
         """Handle Escape key to cancel."""
         if event.key == "escape":
@@ -307,7 +271,7 @@ class EntryEditScreen(Screen):
 
 class ConfirmScreen(Screen[bool]):
     """Confirmation dialog screen."""
-
+    
     DEFAULT_CSS = """
     ConfirmScreen {
         align: center middle;
@@ -320,17 +284,6 @@ class ConfirmScreen(Screen[bool]):
         max-height: 80%;
         border: solid red;
         padding: 1;
-    }
-    #confirm-message {
-        text-wrap: wrap;
-    }
-    /* Small screens */
-    @media (max-width: 80, max-height: 24) {
-        #confirm-container {
-            max-width: 100%;
-            min-width: auto;
-            padding: 0 1;
-        }
     }
     .form-hint {
         text-align: center;
@@ -361,7 +314,7 @@ class ConfirmScreen(Screen[bool]):
 
 class ThemeSettingsScreen(Screen):
     """Screen for selecting and configuring themes."""
-
+    
     DEFAULT_CSS = """
     ThemeSettingsScreen {
         align: center middle;
@@ -373,36 +326,13 @@ class ThemeSettingsScreen(Screen):
         height: auto;
         max-height: 90%;
         border: solid purple;
-        padding: 1;
+        padding: 1 2;
+        overflow: auto;
     }
-    #theme-list {
-        width: 100%;
-        height: auto;
-        layout: grid;
+    #theme-grid {
         grid-size: 2;
-        grid-columns: 1fr 1fr;
-        grid-rows: auto;
         grid-gutter: 1;
-    }
-    #theme-list Button {
-        width: 100%;
-    }
-    /* Small screens: single column layout */
-    @media (max-width: 80, max-height: 24) {
-        #theme-container {
-            max-width: 100%;
-            min-width: auto;
-            padding: 0 1;
-        }
-        #theme-list {
-            grid-size: 1;
-        }
-    }
-    /* Large screens: more columns */
-    @media (min-width: 120) {
-        #theme-list {
-            grid-size: 3;
-        }
+        height: auto;
     }
     .form-hint {
         text-align: center;
@@ -424,18 +354,21 @@ class ThemeSettingsScreen(Screen):
             yield Label(f"Current theme: {self.current_theme}")
             yield Label("")
             yield Label("Select theme:")
-
-            for theme in self.THEMES:
-                selected = " ✓" if theme == self.current_theme else ""
-                yield Button(f"{theme}{selected}", id=f"theme-{theme}")
-
+            
+            with Grid(id="theme-grid"):
+                for theme in self.THEMES:
+                    selected = " ✓" if theme == self.current_theme else ""
+                    yield Button(f"{theme}{selected}", id=f"theme-{theme}")
+            
             yield Label("")
             yield Label("Press [b]ENTER[/b] to select • [b]ESC[/b] to close", classes="form-hint")
-
+    
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle theme selection."""
         button_id = event.button.id
-        if button_id and button_id.startswith("theme-"):
+        if button_id == "close-btn":
+            self.dismiss(None)
+        elif button_id and button_id.startswith("theme-"):
             theme = button_id.replace("theme-", "")
             self.dismiss(theme)
     
@@ -445,42 +378,9 @@ class ThemeSettingsScreen(Screen):
             self.dismiss(None)
 
 
-class HistoryPanel(Static):
-    """Panel showing git version history."""
-
-    DEFAULT_CSS = """
-    HistoryPanel {
-        height: 100%;
-        max-height: 100%;
-        overflow: auto;
-    }
-    #history-list {
-        height: auto;
-        max-height: 95%;
-        overflow: auto;
-    }
-    /* Small screens: compress title */
-    @media (max-width: 100, max-height: 24) {
-        HistoryPanel {
-            display: none;
-        }
-    }
-    """
-    
-    def update_history(self, versions: list) -> None:
-        """Update the history list with versions."""
-        history_list = self.query_one("#history-list", ListView)
-        history_list.clear()
-        
-        for version in versions:
-            # Format: hash - message (time)
-            item_text = f"[{version.commit_hash}] {version.message}"
-            history_list.append(ListItem(Label(item_text, classes="history-item")))
-
-
 class ImportScreen(Screen[dict]):
     """Screen for importing entries from a JSON file."""
-
+    
     DEFAULT_CSS = """
     ImportScreen {
         align: center middle;
@@ -492,8 +392,7 @@ class ImportScreen(Screen[dict]):
         height: auto;
         max-height: 90%;
         border: solid green;
-        padding: 1;
-        overflow: auto;
+        padding: 1 2;
     }
     #import-file-input {
         width: 100%;
@@ -509,18 +408,8 @@ class ImportScreen(Screen[dict]):
         color: $text-muted;
         padding: 1 0;
     }
-    /* Small screens */
-    @media (max-width: 80, max-height: 24) {
-        #import-container {
-            max-width: 100%;
-            min-width: auto;
-            width: 100%;
-            padding: 0 1;
-            margin: 0;
-        }
-    }
     """
-
+    
     def compose(self) -> ComposeResult:
         with Container(id="import-container"):
             yield Label("📥 Import Entries", classes="title")
@@ -529,77 +418,39 @@ class ImportScreen(Screen[dict]):
             yield Input(placeholder="/path/to/export.json", id="import-file-input")
             yield Label("")
             yield Label("Format:")
-            from textual.widgets import Select
-            yield Select(
-                [
-                    ("Auto-detect", "auto"),
-                    ("LazyPassword", "lazypassword"),
-                    ("Bitwarden", "bitwarden"),
-                    ("Chrome", "chrome"),
-                ],
-                value="auto",
-                id="format-select",
-            )
+            yield Input(value="lazypassword", id="format-select")
             yield Label("")
             yield Label("Duplicate handling:")
-            yield Select(
-                [
-                    ("Skip duplicates", "skip"),
-                    ("Merge with existing", "merge"),
-                    ("Replace existing", "replace"),
-                ],
-                value="skip",
-                id="duplicate-select",
-            )
+            yield Input(value="skip", id="duplicate-select")
             yield Label("")
             yield Label("Press [b]ENTER[/b] to import • [b]ESC[/b] to cancel", classes="form-hint")
-
+    
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        """Handle Enter key to submit."""
+        self._do_import()
+    
     def on_key(self, event) -> None:
-        """Handle Enter to import, Escape to cancel."""
-        if event.key == "enter":
-            self._do_import()
-        elif event.key == "escape":
+        """Handle Escape key to cancel."""
+        if event.key == "escape":
             self.dismiss(None)
     
     def _do_import(self) -> None:
-        """Perform the import."""
-        from textual.widgets import Select
-        
+        """Perform import."""
         file_input = self.query_one("#import-file-input", Input)
-        format_select = self.query_one("#format-select", Select)
-        duplicate_select = self.query_one("#duplicate-select", Select)
-        
-        filepath = file_input.value.strip()
-        if not filepath:
-            self.app.notify("Please enter a file path", severity="error")
-            return
-        
-        if not os.path.exists(filepath):
-            self.app.notify(f"File not found: {filepath}", severity="error")
-            return
-        
-        format_value = format_select.value
-        format_hint = None if format_value == "auto" else format_value
-        
-        duplicate_value = duplicate_select.value
-        duplicate_handling = DuplicateHandling(duplicate_value)
+        format_input = self.query_one("#format-select", Input)
+        duplicate_input = self.query_one("#duplicate-select", Input)
         
         result = {
-            "filepath": filepath,
-            "format_hint": format_hint,
-            "duplicate_handling": duplicate_handling,
+            "file_path": file_input.value,
+            "format": format_input.value,
+            "duplicate_handling": duplicate_input.value,
         }
         self.dismiss(result)
-    
-    def on_key(self, event) -> None:
-        """Handle Escape key."""
-        if event.key == "escape":
-            self.dismiss(None)
 
 
 class ExportScreen(Screen[dict]):
     """Screen for exporting entries to a JSON file."""
-
+    
     DEFAULT_CSS = """
     ExportScreen {
         align: center middle;
@@ -610,11 +461,13 @@ class ExportScreen(Screen[dict]):
         max-width: 70;
         height: auto;
         max-height: 90%;
-        border: solid blue;
-        padding: 1;
-        overflow: auto;
+        border: solid cyan;
+        padding: 1 2;
     }
     #export-file-input {
+        width: 100%;
+    }
+    #export-format-select {
         width: 100%;
     }
     .form-hint {
@@ -622,157 +475,62 @@ class ExportScreen(Screen[dict]):
         color: $text-muted;
         padding: 1 0;
     }
-    /* Small screens */
-    @media (max-width: 80, max-height: 24) {
-        #export-container {
-            max-width: 100%;
-            min-width: auto;
-            width: 100%;
-            padding: 0 1;
-            margin: 0;
-        }
-    }
     """
-    
-    def __init__(self, entries: list) -> None:
-        super().__init__()
-        self.all_entries = entries
     
     def compose(self) -> ComposeResult:
         with Container(id="export-container"):
             yield Label("📤 Export Entries", classes="title")
             yield Label("")
-            yield Label(f"Available entries: {len(self.all_entries)}")
-            yield Label("")
-            yield Label("Export mode:")
-            from textual.widgets import RadioSet, RadioButton
-            yield RadioSet(
-                RadioButton("All entries", value=True, id="export-all"),
-                RadioButton("Selected entry only", id="export-selected"),
-            )
-            yield Label("")
-            yield Label("Format:")
-            from textual.widgets import Select
-            yield Select(
-                [
-                    ("LazyPassword JSON", "lazypassword"),
-                    ("Bitwarden JSON", "bitwarden"),
-                ],
-                value="lazypassword",
-                id="export-format-select",
-            )
-            yield Label("")
-            yield Label("File path:")
+            yield Label("Export file path:")
             yield Input(placeholder="/path/to/export.json", id="export-file-input")
             yield Label("")
-            yield Label("Options:")
-            yield Horizontal(
-                Label("Include passwords: "),
-                Input(value="yes", id="include-passwords"),
-            )
+            yield Label("Format:")
+            yield Input(value="lazypassword", id="export-format-select")
             yield Label("")
             yield Label("Press [b]ENTER[/b] to export • [b]ESC[/b] to cancel", classes="form-hint")
-
+    
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        """Handle Enter key to submit."""
+        self._do_export()
+    
     def on_key(self, event) -> None:
-        """Handle Enter to export, Escape to cancel."""
-        if event.key == "enter":
-            self._do_export()
-        elif event.key == "escape":
+        """Handle Escape key to cancel."""
+        if event.key == "escape":
             self.dismiss(None)
     
     def _do_export(self) -> None:
-        """Perform the export."""
-        from textual.widgets import Select, RadioSet, RadioButton
-        
+        """Perform export."""
         file_input = self.query_one("#export-file-input", Input)
-        format_select = self.query_one("#export-format-select", Select)
-        include_passwords_input = self.query_one("#include-passwords", Input)
-        
-        filepath = file_input.value.strip()
-        if not filepath:
-            self.app.notify("Please enter a file path", severity="error")
-            return
-        
-        export_format = format_select.value
-        include_passwords = include_passwords_input.value.lower() in ["yes", "y", "true", "1"]
+        format_input = self.query_one("#export-format-select", Input)
         
         result = {
-            "filepath": filepath,
-            "format": export_format,
-            "include_passwords": include_passwords,
+            "file_path": file_input.value,
+            "format": format_input.value,
         }
         self.dismiss(result)
+
+
+class HistoryPanel(Static):
+    """Panel showing git version history."""
     
-    def on_key(self, event) -> None:
-        """Handle Escape key."""
-        if event.key == "escape":
-            self.dismiss(None)
+    def compose(self) -> ComposeResult:
+        yield Label("📜 History", id="history-title")
+        yield ListView(id="history-list")
+    
+    def update_history(self, versions: list) -> None:
+        """Update the history list with versions."""
+        history_list = self.query_one("#history-list", ListView)
+        history_list.clear()
+        
+        for version in versions:
+            item_text = f"[{version.commit_hash}] {version.message}"
+            history_list.append(ListItem(Label(item_text, classes="history-item")))
 
 
 class LazyPasswordApp(App):
     """Main TUI application for LazyPassword."""
     
     TITLE = "LazyPassword"
-    
-    # Theme CSS definitions
-    THEME_CSS = {
-        "dark": """
-        /* Default dark theme - already applied */
-        """,
-        "light": """
-        Screen { background: #f5f5f5; color: #333; }
-        DataTable { background: #ffffff; color: #333; }
-        StatusBar { background: #e0e0e0; color: #333; }
-        Header { background: #1976d2; color: white; }
-        Input { background: #ffffff; color: #333; }
-        Button { background: #1976d2; color: white; }
-        """,
-        "nord": """
-        Screen { background: #2e3440; color: #d8dee9; }
-        DataTable { background: #3b4252; color: #d8dee9; }
-        StatusBar { background: #434c5e; color: #d8dee9; }
-        Header { background: #5e81ac; color: #eceff4; }
-        Input { background: #3b4252; color: #d8dee9; }
-        Button { background: #5e81ac; color: #eceff4; }
-        .title { color: #88c0d0; }
-        """,
-        "dracula": """
-        Screen { background: #282a36; color: #f8f8f2; }
-        DataTable { background: #44475a; color: #f8f8f2; }
-        StatusBar { background: #44475a; color: #f8f8f2; }
-        Header { background: #bd93f9; color: #282a36; }
-        Input { background: #44475a; color: #f8f8f2; }
-        Button { background: #bd93f9; color: #282a36; }
-        .title { color: #ff79c6; }
-        """,
-        "monokai": """
-        Screen { background: #272822; color: #f8f8f2; }
-        DataTable { background: #383830; color: #f8f8f2; }
-        StatusBar { background: #49483e; color: #f8f8f2; }
-        Header { background: #a6e22e; color: #272822; }
-        Input { background: #383830; color: #f8f8f2; }
-        Button { background: #a6e22e; color: #272822; }
-        .title { color: #66d9ef; }
-        """,
-        "solarized-dark": """
-        Screen { background: #002b36; color: #839496; }
-        DataTable { background: #073642; color: #839496; }
-        StatusBar { background: #073642; color: #839496; }
-        Header { background: #268bd2; color: #fdf6e3; }
-        Input { background: #073642; color: #839496; }
-        Button { background: #268bd2; color: #fdf6e3; }
-        .title { color: #2aa198; }
-        """,
-        "solarized-light": """
-        Screen { background: #fdf6e3; color: #586e75; }
-        DataTable { background: #eee8d5; color: #586e75; }
-        StatusBar { background: #eee8d5; color: #586e75; }
-        Header { background: #268bd2; color: #fdf6e3; }
-        Input { background: #eee8d5; color: #586e75; }
-        Button { background: #268bd2; color: #fdf6e3; }
-        .title { color: #2aa198; }
-        """,
-    }
     
     CSS = """
     Screen {
@@ -785,12 +543,10 @@ class LazyPasswordApp(App):
     }
     #entry-list {
         height: 1fr;
-        width: 1fr;
-        min-width: 50;
+        width: 70%;
     }
     #history-panel {
-        width: 1fr;
-        max-width: 40;
+        width: 30%;
         height: 1fr;
         border: solid $primary-darken-2;
         padding: 0 1;
@@ -803,7 +559,6 @@ class LazyPasswordApp(App):
     #history-list {
         height: 1fr;
         width: 100%;
-        overflow: auto;
     }
     .history-item {
         padding: 0 1;
@@ -832,59 +587,9 @@ class LazyPasswordApp(App):
     }
     #status-content Label {
         width: 1fr;
-        min-width: 10;
-        text-overflow: ellipsis;
     }
     .title {
         text-style: bold;
-    }
-    /* Small terminals (<100 width): Hide history panel */
-    @media (max-width: 100) {
-        #history-panel {
-            display: none;
-        }
-        #entry-list {
-            width: 100%;
-        }
-    }
-    /* Medium terminals (100-150): Side-by-side with 70/30 split */
-    @media (min-width: 100, max-width: 150) {
-        #entry-list {
-            width: 70%;
-        }
-        #history-panel {
-            width: 30%;
-            display: block;
-        }
-    }
-    /* Large terminals (>150): Side-by-side with 60/40 split */
-    @media (min-width: 150) {
-        #entry-list {
-            width: 60%;
-        }
-        #history-panel {
-            width: 40%;
-            display: block;
-        }
-    }
-    /* Short terminals (<24 height): Ensure status bar visibility */
-    @media (max-height: 24) {
-        StatusBar {
-            height: 1;
-        }
-        #history-panel {
-            max-height: 80%;
-        }
-    }
-    /* Very short terminals (<15 height): Compact mode */
-    @media (max-height: 15) {
-        #history-panel {
-            display: none;
-        }
-        #entry-list {
-            width: 100%;
-            height: 100%;
-        }
     }
     """
     
@@ -898,13 +603,9 @@ class LazyPasswordApp(App):
         ("t", "theme", "Theme"),
         ("v", "toggle_history", "Toggle History"),
         ("g", "show_history", "Git History"),
-        ("s", "ssh_keys", "SSH Keys"),
-        ("p", "encryption_settings", "Encryption"),
         ("l", "lock", "Lock"),
         ("h", "help", "Help"),
         ("q", "quit", "Quit"),
-        ("ctrl+e", "export_vault", "Export"),
-        ("ctrl+i", "import_vault", "Import"),
     ]
     
     def __init__(self, vault_path: str, readonly: bool = False) -> None:
@@ -917,13 +618,12 @@ class LazyPasswordApp(App):
         self._locked = True
         self._clipboard_timer: Optional[Timer] = None
         self._inactivity_timer: Optional[Timer] = None
-        self._clipboard_clear_delay = 30  # seconds
-        self._auto_lock_delay = 600  # seconds (10 minutes)
+        self._clipboard_clear_delay = 30
+        self._auto_lock_delay = 600
         self._clipboard_content: Optional[str] = None
         self._clipboard_mgr = ClipboardManager()
         self._entries_cache: List[Entry] = []
         self._show_history = True
-        self._ssh_manager: Optional[SSHManager] = None
     
     def compose(self) -> ComposeResult:
         """Compose the main UI."""
@@ -933,8 +633,6 @@ class LazyPasswordApp(App):
             yield HistoryPanel(id="history-panel")
         yield Footer()
         yield StatusBar()
-
-        # Bind SIGINT handler for graceful shutdown
         signal.signal(signal.SIGINT, self._signal_handler)
     
     def on_mount(self) -> None:
@@ -948,22 +646,21 @@ class LazyPasswordApp(App):
         """Handle SIGINT for graceful shutdown."""
         self.action_lock()
     
-    def _on_first_run(self, password: Optional[str]) -> None:
+    def _on_first_run(self, password_data: Optional[dict]) -> None:
         """Handle first run password entry."""
-        if password:
+        if password_data and isinstance(password_data, dict):
             try:
+                password = password_data.get("password", "")
+                use_keyfile = password_data.get("use_keyfile", False)
+                
                 self.vault = Vault(self.vault_path)
                 self.vault.create(password)
                 self.vault.unlock(password)
                 self._locked = False
                 
-                # Initialize versioning
                 self.versioning = GitVersioning(self.vault_path)
                 self.versioning.initialize()
                 self.versioning.commit("Initial vault creation")
-                
-                # Initialize SSH manager
-                self._ssh_manager = SSHManager(self.vault)
                 
                 self._load_and_apply_theme()
                 self._start_timers()
@@ -984,14 +681,10 @@ class LazyPasswordApp(App):
                 if self.vault.unlock(password):
                     self._locked = False
                     
-                    # Initialize versioning
                     self.versioning = GitVersioning(self.vault_path)
                     if not self.versioning.is_initialized():
                         self.versioning.initialize()
                         self.versioning.commit("Initialize versioning for existing vault")
-                    
-                    # Initialize SSH manager
-                    self._ssh_manager = SSHManager(self.vault)
                     
                     self._load_and_apply_theme()
                     self._start_timers()
@@ -1009,14 +702,11 @@ class LazyPasswordApp(App):
     
     def _start_timers(self) -> None:
         """Start auto-lock and inactivity timers."""
-        # Auto-lock timer
         self._inactivity_timer = self.set_interval(1, self._check_inactivity)
     
     def _check_inactivity(self) -> None:
         """Check for inactivity and auto-lock if needed."""
-        # Simple implementation - lock after delay
-        # In real implementation, track last activity timestamp
-        pass  # Placeholder for inactivity checking
+        pass
     
     def _get_entries(self) -> List[Entry]:
         """Get entries from vault as Entry objects."""
@@ -1049,7 +739,7 @@ class LazyPasswordApp(App):
             history_panel = self.query_one("#history-panel", HistoryPanel)
             history_panel.update_history(versions)
         except Exception:
-            pass  # Silently fail if git not available
+            pass
     
     def _commit_vault_change(self, message: str) -> None:
         """Commit vault changes to git."""
@@ -1058,15 +748,12 @@ class LazyPasswordApp(App):
                 self.versioning.commit(message)
                 self._refresh_history()
             except Exception:
-                pass  # Silently fail if git commit fails
+                pass
     
     def _update_status(self, status: str, count: int = 0, action: str = "") -> None:
         """Update status bar."""
-        encryption = ""
-        if self.vault and not self._locked:
-            encryption = self.vault.get_encryption_plugin() or "unknown"
         status_bar = self.query_one(StatusBar)
-        status_bar.update_status(status, count, action, encryption)
+        status_bar.update_status(status, count, action)
     
     def action_new_entry(self) -> None:
         """Create a new entry."""
@@ -1101,7 +788,6 @@ class LazyPasswordApp(App):
             
             self.vault.save()
             
-            # Commit to git
             action = "Updated" if existing else "Added"
             self._commit_vault_change(f"{action} entry: {entry.title}")
             
@@ -1125,7 +811,6 @@ class LazyPasswordApp(App):
     def _on_delete_confirmed(self, confirmed: bool, entry_id: str) -> None:
         """Handle delete confirmation."""
         if confirmed and self.vault:
-            # Get entry title before deleting
             entry_title = "Unknown"
             for e in self._entries_cache:
                 if e.id == entry_id:
@@ -1135,7 +820,6 @@ class LazyPasswordApp(App):
             self.vault.delete_entry(entry_id)
             self.vault.save()
             
-            # Commit to git
             self._commit_vault_change(f"Deleted entry: {entry_title}")
             
             self._refresh_entry_list()
@@ -1170,23 +854,19 @@ class LazyPasswordApp(App):
         self._clipboard_mgr.copy(text)
         self._clipboard_content = text
         
-        # Clear clipboard after timeout
         if self._clipboard_timer:
             self._clipboard_timer.stop()
-        self._clipboard_timer = self.set_timer(self._clipboard_clear_delay, 
-                                                self._clear_clipboard)
+        self._clipboard_timer = self.set_timer(self._clipboard_clear_delay, self._clear_clipboard)
     
     def _clear_clipboard(self) -> None:
         """Clear clipboard."""
         if self._clipboard_content:
             self._clipboard_mgr.clear()
             self._clipboard_content = None
-            self._update_status("Unlocked", len(self._entries_cache) if self.vault else 0, 
-                              "Clipboard cleared")
+            self._update_status("Unlocked", len(self._entries_cache) if self.vault else 0, "Clipboard cleared")
     
     def action_search(self) -> None:
         """Activate search mode."""
-        # Focus entry list and allow filtering
         self.notify("Search mode activated (type to filter)", severity="information")
     
     def action_lock(self) -> None:
@@ -1196,10 +876,8 @@ class LazyPasswordApp(App):
             self.vault.lock()
         self.vault = None
         
-        # Clear clipboard
         self._clear_clipboard()
         
-        # Stop timers
         if self._clipboard_timer:
             self._clipboard_timer.stop()
         if self._inactivity_timer:
@@ -1221,9 +899,6 @@ class LazyPasswordApp(App):
             "t - Theme settings\n"
             "v - Toggle history panel\n"
             "g - Show git history\n"
-            "s - SSH Keys\n"
-            "Ctrl+E - Export vault\n"
-            "Ctrl+I - Import entries\n"
             "l - Lock vault\n"
             "h - Help\n"
             "q - Quit",
@@ -1237,8 +912,6 @@ class LazyPasswordApp(App):
     
     def _apply_theme(self, theme: str) -> None:
         """Apply the selected theme to the app."""
-        # Theme CSS is applied statically; dynamic switching requires app restart
-        # Store the theme preference for next launch
         pass
     
     def _load_and_apply_theme(self) -> None:
@@ -1294,151 +967,16 @@ class LazyPasswordApp(App):
         except Exception as e:
             self.notify(f"Failed to load history: {e}", severity="error")
     
-    def action_encryption_settings(self) -> None:
-        """Open encryption plugin selection screen."""
-        if self._locked or not self.vault:
-            return
-        
-        current_plugin = self.vault.get_encryption_plugin()
-        self.push_screen(
-            EncryptionSelectionScreen(current_plugin),
-            callback=self._on_encryption_selected
-        )
-    
-    def _on_encryption_selected(self, plugin_id: Optional[str]) -> None:
-        """Handle encryption plugin selection."""
-        if not plugin_id or not self.vault:
-            return
-        
-        current_plugin = self.vault.get_encryption_plugin()
-        if plugin_id == current_plugin:
-            self.notify("Encryption plugin unchanged", severity="information")
-            return
-        
-        try:
-            # Change encryption plugin (re-encrypts vault)
-            self.vault.change_encryption_plugin(plugin_id)
-            
-            # Update status bar
-            self._update_status("Unlocked", len(self._entries_cache), f"Encryption: {plugin_id}")
-            
-            self.notify(
-                f"✅ Encryption changed to {plugin_id}\nVault re-encrypted with new algorithm.",
-                severity="information"
-            )
-        except Exception as e:
-            self.notify(f"Failed to change encryption: {e}", severity="error")
-    
-    def action_ssh_keys(self) -> None:
-        """Open SSH keys management screen."""
-        if self._locked or not self.vault or not self._ssh_manager:
-            return
-        
-        from .screens import SSHKeysScreen
-        self.push_screen(SSHKeysScreen(self._ssh_manager))
-    
-    def action_import_vault(self) -> None:
-        """Open import screen."""
-        if self._locked or not self.vault:
-            return
-        
-        self.push_screen(ImportScreen(), callback=self._on_import_result)
-    
-    def _on_import_result(self, result: Optional[dict]) -> None:
-        """Handle import screen result."""
-        if not result or not self.vault:
-            return
-        
-        try:
-            importer = VaultImporter()
-            import_result = importer.import_to_vault(
-                self.vault,
-                result["filepath"],
-                format_hint=result.get("format_hint"),
-                duplicate_handling=result.get("duplicate_handling", DuplicateHandling.SKIP)
-            )
-            
-            # Commit to git
-            if self.versioning:
-                self._commit_vault_change(f"Imported {import_result['entries_added']} entries from {result['filepath']}")
-            
-            self._refresh_entry_list()
-            
-            # Show summary
-            summary = (
-                f"✅ Import Complete\n\n"
-                f"Format: {import_result['format']}\n"
-                f"Total processed: {import_result['total_processed']}\n"
-                f"Added: {import_result['entries_added']}\n"
-                f"Skipped: {import_result['entries_skipped']}\n"
-                f"Merged: {import_result['entries_merged']}\n"
-                f"Replaced: {import_result['entries_replaced']}"
-            )
-            self.notify(summary, severity="information", timeout=10)
-            self._update_status("Unlocked", len(self._entries_cache), "Import complete")
-            
-        except Exception as e:
-            self.notify(f"Import failed: {e}", severity="error")
-    
-    def action_export_vault(self) -> None:
-        """Open export screen."""
-        if self._locked or not self.vault:
-            return
-        
-        self.push_screen(ExportScreen(self._entries_cache), callback=self._on_export_result)
-    
-    def _on_export_result(self, result: Optional[dict]) -> None:
-        """Handle export screen result."""
-        if not result or not self.vault:
-            return
-        
-        try:
-            exporter = VaultExporter(self.vault)
-            
-            if result["format"] == "bitwarden":
-                export_result = exporter.export_to_bitwarden(result["filepath"])
-            else:
-                export_result = exporter.export_to_json(
-                    result["filepath"],
-                    include_passwords=result["include_passwords"]
-                )
-            
-            # Show summary
-            summary = (
-                f"✅ Export Complete\n\n"
-                f"Entries: {export_result['entries_exported']}\n"
-                f"Format: {export_result.get('format', 'lazypassword')}\n"
-                f"File: {export_result['filepath']}\n"
-                f"Passwords included: {'Yes' if export_result.get('includes_passwords', True) else 'No'}"
-            )
-            self.notify(summary, severity="information", timeout=10)
-            self._update_status("Unlocked", len(self._entries_cache), "Export complete")
-            
-        except Exception as e:
-            self.notify(f"Export failed: {e}", severity="error")
-    
     def on_unmount(self) -> None:
         """Cleanup on exit."""
-        # Ensure vault is locked
         self._locked = True
         if self.vault:
             self.vault.lock()
         self.vault = None
         
-        # Clear clipboard
         self._clear_clipboard()
         
-        # Stop timers
         if self._clipboard_timer:
             self._clipboard_timer.stop()
         if self._inactivity_timer:
             self._inactivity_timer.stop()
-    
-    # Watchers
-    def watch_clipboard_timeout(self) -> None:
-        """Auto-clear clipboard after timeout."""
-        pass  # Handled by timer
-    
-    def watch_inactivity(self) -> None:
-        """Auto-lock after inactivity."""
-        pass  # Handled by timer
