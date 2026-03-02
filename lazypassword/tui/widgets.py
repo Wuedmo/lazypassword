@@ -10,6 +10,7 @@ import string
 from typing import Callable, List, Optional, Any
 
 from textual.containers import Container, Horizontal, Vertical, VerticalScroll
+from textual.message import Message
 from textual.reactive import reactive
 from textual.widgets import (
     Button,
