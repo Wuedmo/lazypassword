@@ -32,7 +32,7 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/wudmmaster/lazypassword.git
+git clone https://github.com/Wuedmo/lazypassword.git
 cd lazypassword
 
 # Install dependencies
@@ -200,7 +200,7 @@ export LAZYPASSWORD_VAULT_PATH=/path/to/vault.lpv
 ### Setup
 
 ```bash
-git clone https://github.com/wudmmaster/lazypassword.git
+git clone https://github.com/Wuedmo/lazypassword.git
 cd lazypassword
 
 python -m venv venv
@@ -265,5 +265,5 @@ This software is provided as-is. You are responsible for:
 ---
 
 <p align="center">
-  Made with ⚡ by <a href="https://github.com/wudmmaster">WdmMaster</a>
+  Made with ⚡ by <a href="https://github.com/Wuedmo">Wuedmo</a>
 </p>
