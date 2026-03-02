@@ -81,13 +81,22 @@ class FirstRunScreen(Screen):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle create vault button."""
         if event.button.id == "create-btn":
-            password_input = self.query_one("#password-input", Input)
-            password = password_input.value
-            if len(password) >= 12:
-                self.dismiss(password)
-            else:
-                self.app.notify("Password must be at least 12 characters", severity="error")
-                password_input.focus()
+            self._create_vault()
+    
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        """Handle Enter key in password input."""
+        if event.input.id == "password-input":
+            self._create_vault()
+    
+    def _create_vault(self) -> None:
+        """Create vault with entered password."""
+        password_input = self.query_one("#password-input", Input)
+        password = password_input.value
+        if len(password) >= 12:
+            self.dismiss(password)
+        else:
+            self.app.notify("Password must be at least 12 characters", severity="error")
+            password_input.focus()
 
 
 class UnlockScreen(Screen):
@@ -116,10 +125,19 @@ class UnlockScreen(Screen):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle unlock button."""
         if event.button.id == "unlock-btn":
-            password_input = self.query_one("#password-input", Input)
-            password = password_input.value
-            if password:
-                self.dismiss(password)
+            self._unlock()
+    
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        """Handle Enter key in password input."""
+        if event.input.id == "password-input":
+            self._unlock()
+    
+    def _unlock(self) -> None:
+        """Unlock with entered password."""
+        password_input = self.query_one("#password-input", Input)
+        password = password_input.value
+        if password:
+            self.dismiss(password)
 
 
 class EntryEditScreen(Screen):
@@ -171,15 +189,23 @@ class EntryEditScreen(Screen):
         if event.button.id == "cancel-btn":
             self.dismiss(None)
         elif event.button.id == "save-btn":
-            self.entry.title = self.query_one("#title-input", Input).value
-            self.entry.username = self.query_one("#username-input", Input).value
-            self.entry.password = self.query_one("#password-input", Input).value
-            self.entry.url = self.query_one("#url-input", Input).value
-            self.entry.notes = self.query_one("#notes-input", Input).value
-            tags_str = self.query_one("#tags-input", Input).value
-            self.entry.tags = [t.strip() for t in tags_str.split(",") if t.strip()]
-            self.entry.update_timestamp()
-            self.dismiss(self.entry)
+            self._save_entry()
+    
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        """Handle Enter key in any input field - save the entry."""
+        self._save_entry()
+    
+    def _save_entry(self) -> None:
+        """Save the entry from form values."""
+        self.entry.title = self.query_one("#title-input", Input).value
+        self.entry.username = self.query_one("#username-input", Input).value
+        self.entry.password = self.query_one("#password-input", Input).value
+        self.entry.url = self.query_one("#url-input", Input).value
+        self.entry.notes = self.query_one("#notes-input", Input).value
+        tags_str = self.query_one("#tags-input", Input).value
+        self.entry.tags = [t.strip() for t in tags_str.split(",") if t.strip()]
+        self.entry.update_timestamp()
+        self.dismiss(self.entry)
 
 
 class ConfirmScreen(Screen[bool]):
@@ -215,6 +241,13 @@ class ConfirmScreen(Screen[bool]):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button press."""
         self.dismiss(event.button.id == "yes-btn")
+    
+    def on_key(self, event) -> None:
+        """Handle keyboard shortcuts - Enter confirms, Escape cancels."""
+        if event.key == "enter":
+            self.dismiss(True)
+        elif event.key == "escape":
+            self.dismiss(False)
 
 
 class LazyPasswordApp(App):
