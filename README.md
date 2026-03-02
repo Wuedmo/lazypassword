@@ -267,6 +267,7 @@ mypy lazypassword/
 
 ## 🗺️ Roadmap
 
+### ✅ Completed
 - [x] v1.0 — Core TUI, encryption, CRUD
 - [x] Git versioning for vault history
 - [x] Theming (7 themes, persistent)
@@ -274,12 +275,13 @@ mypy lazypassword/
 - [x] TOTP/2FA support
 - [x] JSON import/export
 - [x] SSH key storage
-- [x] **Encryption algorithm selection** — Plugin-based encryption with AES-256-GCM and ChaCha20-Poly1305
-- [ ] **Responsive design** — Fix scrolling issues, optimize layout for different terminal sizes
-- [ ] **Remove buttons** — Replace Submit/Cancel buttons with "Press ENTER/ESC" hints
+- [x] Encryption algorithm selection — Plugin-based encryption
+- [x] Responsive design — Adaptive layouts for all terminal sizes
+- [x] Keyboard-only forms — "Press ENTER/ESC" hints instead of buttons
+
+### ⏳ Remaining
 - [ ] **API Key storage** — Support multiple formats (OpenAI, AWS, Stripe, custom headers, etc.)
 - [ ] Plugin system
-- [ ] Remote sync (optional, encrypted) — postponed
 - [ ] Remote sync (optional, encrypted) — postponed
 
 ---
