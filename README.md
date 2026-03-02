@@ -7,7 +7,7 @@
 [![Security: AES-256-GCM](https://img.shields.io/badge/security-AES--256--GCM-green.svg)](https://en.wikipedia.org/wiki/Galois/Counter_Mode)
 
 <p align="center">
-  <img src="docs/screenshots/main.png" alt="lazypassword main interface" width="700">
+  <img src="docs/screenshots/main.png" alt="lazypassword main interface with entries and git history" width="700">
 </p>
 
 ---
