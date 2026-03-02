@@ -270,10 +270,12 @@ mypy lazypassword/
 - [x] v1.0 — Core TUI, encryption, CRUD
 - [x] Git versioning for vault history
 - [x] Theming (7 themes, persistent)
-- [ ] Keyfile support
-- [ ] TOTP/2FA support
-- [ ] JSON import/export
-- [ ] SSH key storage
+- [x] Keyfile support
+- [x] TOTP/2FA support
+- [x] JSON import/export
+- [x] SSH key storage
+- [ ] **Encryption algorithm selection** — Choose cipher at vault creation (AES-256-GCM, ChaCha20-Poly1305, etc.)
+- [ ] **API Key storage** — Support multiple formats (OpenAI, AWS, Stripe, custom headers, etc.)
 - [ ] Plugin system
 - [ ] Remote sync (optional, encrypted) — postponed
 
