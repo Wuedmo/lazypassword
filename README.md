@@ -6,10 +6,6 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Security: AES-256-GCM](https://img.shields.io/badge/security-AES--256--GCM-green.svg)](https://en.wikipedia.org/wiki/Galois/Counter_Mode)
 
-<p align="center">
-  <img src="https://via.placeholder.com/600x300/1e1e1e/ffffff?text=lazypassword+TUI+Demo" alt="lazypassword demo" width="600">
-</p>
-
 ---
 
 ## ✨ Features
