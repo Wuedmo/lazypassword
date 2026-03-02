@@ -124,8 +124,9 @@ class FirstRunScreen(Screen):
     def on_click(self, event) -> None:
         """Handle clicks on the checkbox area."""
         checkbox = self.query_one("#keyfile-checkbox", Label)
-        current = checkbox.renderable
-        if "✓" in str(current):
+        # Get current text from the label
+        current_text = checkbox.render() if hasattr(checkbox, 'render') else str(checkbox)
+        if "✓" in current_text:
             checkbox.update("[ ]")
         else:
             checkbox.update("[✓]")
