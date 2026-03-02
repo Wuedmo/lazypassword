@@ -26,6 +26,9 @@ from ..vault import Vault
 from ..entry import Entry
 from ..utils.clipboard import ClipboardManager
 from ..versioning import GitVersioning, VaultVersion
+from ..ssh_manager import SSHManager
+from ..import_export import VaultExporter, VaultImporter, DuplicateHandling, ImportFormat
+from .screens import EncryptionSelectionScreen
 
 
 class StatusBar(Static):
@@ -34,25 +37,30 @@ class StatusBar(Static):
     vault_status = reactive("Locked")
     entry_count = reactive(0)
     last_action = reactive("")
+    encryption_plugin = reactive("")
     
     def compose(self) -> ComposeResult:
         yield Horizontal(
             Label(f" 🔒 {self.vault_status}", id="status-vault"),
             Label(f" 📁 Entries: {self.entry_count}", id="status-count"),
+            Label(f" 🔐 {self.encryption_plugin or 'No Plugin'}", id="status-encryption"),
             Label(f" 📋 {self.last_action}", id="status-action"),
             id="status-content",
         )
     
-    def update_status(self, status: str, count: int = 0, action: str = "") -> None:
+    def update_status(self, status: str, count: int = 0, action: str = "", encryption: str = "") -> None:
         """Update status bar display."""
         self.vault_status = status
         self.entry_count = count
         self.last_action = action
+        self.encryption_plugin = encryption
         vault_label = self.query_one("#status-vault", Label)
         count_label = self.query_one("#status-count", Label)
         action_label = self.query_one("#status-action", Label)
+        encryption_label = self.query_one("#status-encryption", Label)
         vault_label.update(f" 🔒 {status}")
         count_label.update(f" 📁 Entries: {count}")
+        encryption_label.update(f" 🔐 {encryption}" if encryption else " 🔐 No Plugin")
         action_label.update(f" 📋 {action}" if action else "")
 
 
@@ -79,6 +87,13 @@ class FirstRunScreen(Screen):
             yield Label("Set a master password (min 12 chars):")
             yield Input(placeholder="Enter master password...", password=True, id="password-input")
             yield Label("")
+            yield Horizontal(
+                Label("Use keyfile (additional security): "),
+                Label("[ ]", id="keyfile-checkbox"),
+                id="keyfile-row"
+            )
+            yield Label("  Select a file to use as an additional authentication factor.")
+            yield Label("")
             yield Button("Create Vault", id="create-btn", variant="primary")
     
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -91,12 +106,27 @@ class FirstRunScreen(Screen):
         if event.input.id == "password-input":
             self._create_vault()
     
+    def on_click(self, event) -> None:
+        """Handle clicks on the checkbox area."""
+        # Check if click was on keyfile row
+        checkbox = self.query_one("#keyfile-checkbox", Label)
+        current = checkbox.renderable
+        if "✓" in str(current):
+            checkbox.update("[ ]")
+        else:
+            checkbox.update("[✓]")
+    
     def _create_vault(self) -> None:
         """Create vault with entered password."""
         password_input = self.query_one("#password-input", Input)
         password = password_input.value
+        
+        checkbox = self.query_one("#keyfile-checkbox", Label)
+        use_keyfile = "✓" in str(checkbox.renderable)
+        
         if len(password) >= 12:
-            self.dismiss(password)
+            result = {"password": password, "use_keyfile": use_keyfile}
+            self.dismiss(result)
         else:
             self.app.notify("Password must be at least 12 characters", severity="error")
             password_input.focus()
@@ -115,11 +145,21 @@ class UnlockScreen(Screen):
         border: solid blue;
         padding: 1 2;
     }
+    #keyfile-indicator {
+        color: yellow;
+        text-style: italic;
+    }
     """
+    
+    def __init__(self, requires_keyfile: bool = False) -> None:
+        super().__init__()
+        self.requires_keyfile = requires_keyfile
     
     def compose(self) -> ComposeResult:
         with Container(id="unlock-container"):
             yield Label("🔐 Unlock Vault", classes="title")
+            if self.requires_keyfile:
+                yield Label("ℹ️ This vault requires a keyfile", id="keyfile-indicator")
             yield Label("")
             yield Input(placeholder="Master password...", password=True, id="password-input")
             yield Label("")
@@ -140,7 +180,8 @@ class UnlockScreen(Screen):
         password_input = self.query_one("#password-input", Input)
         password = password_input.value
         if password:
-            self.dismiss(password)
+            result = {"password": password, "needs_keyfile": self.requires_keyfile}
+            self.dismiss(result)
 
 
 class EntryEditScreen(Screen):
@@ -326,6 +367,205 @@ class HistoryPanel(Static):
             history_list.append(ListItem(Label(item_text, classes="history-item")))
 
 
+class ImportScreen(Screen[dict]):
+    """Screen for importing entries from a JSON file."""
+    
+    DEFAULT_CSS = """
+    ImportScreen {
+        align: center middle;
+    }
+    #import-container {
+        width: 70;
+        height: auto;
+        border: solid green;
+        padding: 1 2;
+    }
+    #import-file-input {
+        width: 100%;
+    }
+    #format-select {
+        width: 100%;
+    }
+    #duplicate-select {
+        width: 100%;
+    }
+    """
+    
+    def compose(self) -> ComposeResult:
+        with Container(id="import-container"):
+            yield Label("📥 Import Entries", classes="title")
+            yield Label("")
+            yield Label("File path:")
+            yield Input(placeholder="/path/to/export.json", id="import-file-input")
+            yield Label("")
+            yield Label("Format:")
+            from textual.widgets import Select
+            yield Select(
+                [
+                    ("Auto-detect", "auto"),
+                    ("LazyPassword", "lazypassword"),
+                    ("Bitwarden", "bitwarden"),
+                    ("Chrome", "chrome"),
+                ],
+                value="auto",
+                id="format-select",
+            )
+            yield Label("")
+            yield Label("Duplicate handling:")
+            yield Select(
+                [
+                    ("Skip duplicates", "skip"),
+                    ("Merge with existing", "merge"),
+                    ("Replace existing", "replace"),
+                ],
+                value="skip",
+                id="duplicate-select",
+            )
+            yield Label("")
+            yield Horizontal(
+                Button("Import", id="import-btn", variant="primary"),
+                Button("Cancel", id="cancel-btn"),
+            )
+    
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle button presses."""
+        if event.button.id == "cancel-btn":
+            self.dismiss(None)
+        elif event.button.id == "import-btn":
+            self._do_import()
+    
+    def _do_import(self) -> None:
+        """Perform the import."""
+        from textual.widgets import Select
+        
+        file_input = self.query_one("#import-file-input", Input)
+        format_select = self.query_one("#format-select", Select)
+        duplicate_select = self.query_one("#duplicate-select", Select)
+        
+        filepath = file_input.value.strip()
+        if not filepath:
+            self.app.notify("Please enter a file path", severity="error")
+            return
+        
+        if not os.path.exists(filepath):
+            self.app.notify(f"File not found: {filepath}", severity="error")
+            return
+        
+        format_value = format_select.value
+        format_hint = None if format_value == "auto" else format_value
+        
+        duplicate_value = duplicate_select.value
+        duplicate_handling = DuplicateHandling(duplicate_value)
+        
+        result = {
+            "filepath": filepath,
+            "format_hint": format_hint,
+            "duplicate_handling": duplicate_handling,
+        }
+        self.dismiss(result)
+    
+    def on_key(self, event) -> None:
+        """Handle Escape key."""
+        if event.key == "escape":
+            self.dismiss(None)
+
+
+class ExportScreen(Screen[dict]):
+    """Screen for exporting entries to a JSON file."""
+    
+    DEFAULT_CSS = """
+    ExportScreen {
+        align: center middle;
+    }
+    #export-container {
+        width: 70;
+        height: auto;
+        border: solid blue;
+        padding: 1 2;
+    }
+    #export-file-input {
+        width: 100%;
+    }
+    """
+    
+    def __init__(self, entries: list) -> None:
+        super().__init__()
+        self.all_entries = entries
+    
+    def compose(self) -> ComposeResult:
+        with Container(id="export-container"):
+            yield Label("📤 Export Entries", classes="title")
+            yield Label("")
+            yield Label(f"Available entries: {len(self.all_entries)}")
+            yield Label("")
+            yield Label("Export mode:")
+            from textual.widgets import RadioSet, RadioButton
+            yield RadioSet(
+                RadioButton("All entries", value=True, id="export-all"),
+                RadioButton("Selected entry only", id="export-selected"),
+            )
+            yield Label("")
+            yield Label("Format:")
+            from textual.widgets import Select
+            yield Select(
+                [
+                    ("LazyPassword JSON", "lazypassword"),
+                    ("Bitwarden JSON", "bitwarden"),
+                ],
+                value="lazypassword",
+                id="export-format-select",
+            )
+            yield Label("")
+            yield Label("File path:")
+            yield Input(placeholder="/path/to/export.json", id="export-file-input")
+            yield Label("")
+            yield Label("Options:")
+            yield Horizontal(
+                Label("Include passwords: "),
+                Input(value="yes", id="include-passwords"),
+            )
+            yield Label("")
+            yield Horizontal(
+                Button("Export", id="export-btn", variant="primary"),
+                Button("Cancel", id="cancel-btn"),
+            )
+    
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle button presses."""
+        if event.button.id == "cancel-btn":
+            self.dismiss(None)
+        elif event.button.id == "export-btn":
+            self._do_export()
+    
+    def _do_export(self) -> None:
+        """Perform the export."""
+        from textual.widgets import Select, RadioSet, RadioButton
+        
+        file_input = self.query_one("#export-file-input", Input)
+        format_select = self.query_one("#export-format-select", Select)
+        include_passwords_input = self.query_one("#include-passwords", Input)
+        
+        filepath = file_input.value.strip()
+        if not filepath:
+            self.app.notify("Please enter a file path", severity="error")
+            return
+        
+        export_format = format_select.value
+        include_passwords = include_passwords_input.value.lower() in ["yes", "y", "true", "1"]
+        
+        result = {
+            "filepath": filepath,
+            "format": export_format,
+            "include_passwords": include_passwords,
+        }
+        self.dismiss(result)
+    
+    def on_key(self, event) -> None:
+        """Handle Escape key."""
+        if event.key == "escape":
+            self.dismiss(None)
+
+
 class LazyPasswordApp(App):
     """Main TUI application for LazyPassword."""
     
@@ -462,9 +702,13 @@ class LazyPasswordApp(App):
         ("t", "theme", "Theme"),
         ("v", "toggle_history", "Toggle History"),
         ("g", "show_history", "Git History"),
+        ("s", "ssh_keys", "SSH Keys"),
+        ("p", "encryption_settings", "Encryption"),
         ("l", "lock", "Lock"),
         ("h", "help", "Help"),
         ("q", "quit", "Quit"),
+        ("ctrl+e", "export_vault", "Export"),
+        ("ctrl+i", "import_vault", "Import"),
     ]
     
     def __init__(self, vault_path: str, readonly: bool = False) -> None:
@@ -483,6 +727,7 @@ class LazyPasswordApp(App):
         self._clipboard_mgr = ClipboardManager()
         self._entries_cache: List[Entry] = []
         self._show_history = True
+        self._ssh_manager: Optional[SSHManager] = None
     
     def compose(self) -> ComposeResult:
         """Compose the main UI."""
@@ -521,6 +766,9 @@ class LazyPasswordApp(App):
                 self.versioning.initialize()
                 self.versioning.commit("Initial vault creation")
                 
+                # Initialize SSH manager
+                self._ssh_manager = SSHManager(self.vault)
+                
                 self._load_and_apply_theme()
                 self._start_timers()
                 self._refresh_entry_list()
@@ -545,6 +793,9 @@ class LazyPasswordApp(App):
                     if not self.versioning.is_initialized():
                         self.versioning.initialize()
                         self.versioning.commit("Initialize versioning for existing vault")
+                    
+                    # Initialize SSH manager
+                    self._ssh_manager = SSHManager(self.vault)
                     
                     self._load_and_apply_theme()
                     self._start_timers()
@@ -615,8 +866,11 @@ class LazyPasswordApp(App):
     
     def _update_status(self, status: str, count: int = 0, action: str = "") -> None:
         """Update status bar."""
+        encryption = ""
+        if self.vault and not self._locked:
+            encryption = self.vault.get_encryption_plugin() or "unknown"
         status_bar = self.query_one(StatusBar)
-        status_bar.update_status(status, count, action)
+        status_bar.update_status(status, count, action, encryption)
     
     def action_new_entry(self) -> None:
         """Create a new entry."""
@@ -771,6 +1025,9 @@ class LazyPasswordApp(App):
             "t - Theme settings\n"
             "v - Toggle history panel\n"
             "g - Show git history\n"
+            "s - SSH Keys\n"
+            "Ctrl+E - Export vault\n"
+            "Ctrl+I - Import entries\n"
             "l - Lock vault\n"
             "h - Help\n"
             "q - Quit",
@@ -784,8 +1041,9 @@ class LazyPasswordApp(App):
     
     def _apply_theme(self, theme: str) -> None:
         """Apply the selected theme to the app."""
-        if theme in self.THEME_CSS:
-            self.stylesheet.add_css(self.THEME_CSS[theme])
+        # Theme CSS is applied statically; dynamic switching requires app restart
+        # Store the theme preference for next launch
+        pass
     
     def _load_and_apply_theme(self) -> None:
         """Load theme from vault settings and apply it."""
@@ -839,6 +1097,129 @@ class LazyPasswordApp(App):
                 self.notify("No history available", severity="warning")
         except Exception as e:
             self.notify(f"Failed to load history: {e}", severity="error")
+    
+    def action_encryption_settings(self) -> None:
+        """Open encryption plugin selection screen."""
+        if self._locked or not self.vault:
+            return
+        
+        current_plugin = self.vault.get_encryption_plugin()
+        self.push_screen(
+            EncryptionSelectionScreen(current_plugin),
+            callback=self._on_encryption_selected
+        )
+    
+    def _on_encryption_selected(self, plugin_id: Optional[str]) -> None:
+        """Handle encryption plugin selection."""
+        if not plugin_id or not self.vault:
+            return
+        
+        current_plugin = self.vault.get_encryption_plugin()
+        if plugin_id == current_plugin:
+            self.notify("Encryption plugin unchanged", severity="information")
+            return
+        
+        try:
+            # Change encryption plugin (re-encrypts vault)
+            self.vault.change_encryption_plugin(plugin_id)
+            
+            # Update status bar
+            self._update_status("Unlocked", len(self._entries_cache), f"Encryption: {plugin_id}")
+            
+            self.notify(
+                f"✅ Encryption changed to {plugin_id}\nVault re-encrypted with new algorithm.",
+                severity="information"
+            )
+        except Exception as e:
+            self.notify(f"Failed to change encryption: {e}", severity="error")
+    
+    def action_ssh_keys(self) -> None:
+        """Open SSH keys management screen."""
+        if self._locked or not self.vault or not self._ssh_manager:
+            return
+        
+        from .screens import SSHKeysScreen
+        self.push_screen(SSHKeysScreen(self._ssh_manager))
+    
+    def action_import_vault(self) -> None:
+        """Open import screen."""
+        if self._locked or not self.vault:
+            return
+        
+        self.push_screen(ImportScreen(), callback=self._on_import_result)
+    
+    def _on_import_result(self, result: Optional[dict]) -> None:
+        """Handle import screen result."""
+        if not result or not self.vault:
+            return
+        
+        try:
+            importer = VaultImporter()
+            import_result = importer.import_to_vault(
+                self.vault,
+                result["filepath"],
+                format_hint=result.get("format_hint"),
+                duplicate_handling=result.get("duplicate_handling", DuplicateHandling.SKIP)
+            )
+            
+            # Commit to git
+            if self.versioning:
+                self._commit_vault_change(f"Imported {import_result['entries_added']} entries from {result['filepath']}")
+            
+            self._refresh_entry_list()
+            
+            # Show summary
+            summary = (
+                f"✅ Import Complete\n\n"
+                f"Format: {import_result['format']}\n"
+                f"Total processed: {import_result['total_processed']}\n"
+                f"Added: {import_result['entries_added']}\n"
+                f"Skipped: {import_result['entries_skipped']}\n"
+                f"Merged: {import_result['entries_merged']}\n"
+                f"Replaced: {import_result['entries_replaced']}"
+            )
+            self.notify(summary, severity="information", timeout=10)
+            self._update_status("Unlocked", len(self._entries_cache), "Import complete")
+            
+        except Exception as e:
+            self.notify(f"Import failed: {e}", severity="error")
+    
+    def action_export_vault(self) -> None:
+        """Open export screen."""
+        if self._locked or not self.vault:
+            return
+        
+        self.push_screen(ExportScreen(self._entries_cache), callback=self._on_export_result)
+    
+    def _on_export_result(self, result: Optional[dict]) -> None:
+        """Handle export screen result."""
+        if not result or not self.vault:
+            return
+        
+        try:
+            exporter = VaultExporter(self.vault)
+            
+            if result["format"] == "bitwarden":
+                export_result = exporter.export_to_bitwarden(result["filepath"])
+            else:
+                export_result = exporter.export_to_json(
+                    result["filepath"],
+                    include_passwords=result["include_passwords"]
+                )
+            
+            # Show summary
+            summary = (
+                f"✅ Export Complete\n\n"
+                f"Entries: {export_result['entries_exported']}\n"
+                f"Format: {export_result.get('format', 'lazypassword')}\n"
+                f"File: {export_result['filepath']}\n"
+                f"Passwords included: {'Yes' if export_result.get('includes_passwords', True) else 'No'}"
+            )
+            self.notify(summary, severity="information", timeout=10)
+            self._update_status("Unlocked", len(self._entries_cache), "Export complete")
+            
+        except Exception as e:
+            self.notify(f"Export failed: {e}", severity="error")
     
     def on_unmount(self) -> None:
         """Cleanup on exit."""
