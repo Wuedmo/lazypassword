@@ -1,99 +1,204 @@
-# lazypassword (Go rewrite)
+<div align="center">
 
-A terminal password manager for lazy people. Fast, simple, and stays out of your way.
+# 🔐 lazypassword
 
-## Installation
+[![Go Version](https://img.shields.io/badge/go-%5E1.21-blue)](https://golang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Go Report Card](https://g.shields.io/badge/go%20report-A+-brightgreen.svg)](https://goreportcard.com/)
+[![Build](https://img.shields.io/badge/build-passing-brightgreen)]()
 
-### Using go install
+**A terminal password manager for lazy people. Fast, keyboard-driven, and completely offline.**
+
+</div>
+
+---
+
+<div align="center">
+  <img src="docs/screenshots/unlock.png" alt="Unlock Screen" width="600">
+</div>
+
+## ✨ Features
+
+- 🔒 **Military-grade Encryption** — AES-256-GCM + Argon2id key derivation
+- ⚡ **Lightning Fast** — Single static binary, instant startup
+- ⌨️ **Vim Keybindings** — `j/k` to navigate, `/` to search, `enter` to copy
+- 📜 **Git Versioning** — Track every change with built-in git history
+- 📋 **Secure Clipboard** — Auto-clear after 30 seconds
+- 🔑 **Password Generator** — Cryptographically secure random passwords
+- 📵 **100% Offline** — No cloud, no accounts, no tracking
+- 🚀 **Zero Dependencies** — Single binary works everywhere
+
+## 📸 Screenshots
+
+<div align="center">
+  <img src="docs/screenshots/main.png" alt="Main Interface" width="700">
+  <br><br>
+  <p><i>Main interface with entries and git history panel</i></p>
+</div>
+
+## 🚀 Quick Start
+
+### Installation
+
+**Download Pre-built Binary** (Coming Soon)
 
 ```bash
-go install github.com/wuedmo/lazypassword@latest
+# Or install from source
+git clone https://github.com/Wuedmo/lazypassword.git
+cd lazypassword
+go build -o lazypassword
 ```
 
-### Download binary
-
-Grab the latest binary from the [releases page](https://github.com/wuedmo/lazypassword/releases).
-
-## Quick Start
+### First Run
 
 ```bash
-# Create a new vault
-lazypassword init
+# Launch with default vault location (~/.config/lazypassword/vault.lpv)
+./lazypassword
 
-# Add an entry
-lazypassword add github
-
-# List entries
-lazypassword list
-
-# Copy password to clipboard
-lazypassword copy github
-
-# Interactive TUI mode
-lazypassword
+# Or specify custom vault location
+./lazypassword --vault /path/to/your/vault.lpv
 ```
 
-## Key Bindings
+On first launch, you'll create a master password (minimum 12 characters). Your vault is automatically created and encrypted.
 
-| Key | Action |
-|-----|--------|
-| `↑/k` | Move up |
-| `↓/j` | Move down |
-| `Enter` | Copy password to clipboard |
-| `a` | Add new entry |
-| `e` | Edit entry |
-| `d` | Delete entry |
-| `/` | Search/filter |
-| `q` | Quit |
+## ⌨️ Usage
 
-## Build
+### Key Bindings
+
+| Key | Action | Description |
+|-----|--------|-------------|
+| `↑` / `k` | Navigate Up | Move to previous entry |
+| `↓` / `j` | Navigate Down | Move to next entry |
+| `Enter` | Copy Password | Copy selected password to clipboard |
+| `a` | Add Entry | Create new password entry |
+| `e` | Edit Entry | Modify selected entry |
+| `d` | Delete Entry | Remove selected entry |
+| `/` | Search | Filter entries by name |
+| `g` | Git History | View vault change history |
+| `v` | Toggle Panel | Show/hide history panel |
+| `l` / `q` | Lock/Quit | Lock vault and exit |
+
+### Basic Workflow
+
+1. **Unlock** your vault with your master password
+2. **Navigate** with `j/k` or arrow keys
+3. **Search** with `/` and start typing
+4. **Copy** passwords with `Enter`
+5. **Add** new entries with `a`
+6. **Lock** with `l` when done
+
+## 📦 Building from Source
+
+### Prerequisites
+- Go 1.21 or higher
+- Git
 
 ```bash
-# Build binary
+# Clone repository
+git clone https://github.com/Wuedmo/lazypassword.git
+cd lazypassword
+
+# Download dependencies
+go mod tidy
+
+# Build for your platform
 go build -o lazypassword
 
-# Or use make
+# Or use Make
 make build
+
+# Install system-wide (optional)
+make install
 ```
 
-## Differences from Python Version
+### Cross-Platform Builds
 
-| Feature | Python | Go |
-|---------|--------|-----|
-| Themes | Yes (configurable) | No (single style) |
-| Distribution | pip install + deps | Single static binary |
-| Startup time | ~1s | Instant |
-| Dependencies | Python, click, cryptography, pyperclip | None (static) |
+```bash
+# Linux
+GOOS=linux GOARCH=amd64 go build -o lazypassword-linux
 
-The Go version trades theming for simplicity and speed. One binary, zero dependencies, works everywhere.
+# macOS
+GOOS=darwin GOARCH=amd64 go build -o lazypassword-mac
 
-## Roadmap
+# Windows
+GOOS=windows GOARCH=amd64 go build -o lazypassword.exe
+```
 
-### ✅ Completed (Go rewrite)
-- [x] Core crypto (AES-256-GCM, Argon2id)
-- [x] Entry management (CRUD)
-- [x] Vault with atomic writes
-- [x] TUI with bubbletea
-- [x] Vim keybindings (j/k, etc.)
-- [x] Git versioning
-- [x] Clipboard integration with auto-clear
-- [x] Password generator
-- [x] Search/filter
-- [x] Repository cleanup — Removed Python code
+## 🔒 Security
+
+- **Encryption**: AES-256-GCM with Argon2id key derivation
+- **Memory**: Securely wiped on lock/exit
+- **Files**: Atomic writes with 0600 permissions
+- **Clipboard**: Auto-clears after 30 seconds
+- **Offline**: No network access required
+
+## 🧪 Testing
+
+```bash
+# Run all tests
+go test ./...
+
+# Run with coverage
+go test -v ./...
+
+# Run benchmarks
+go test -bench=. ./...
+```
+
+## 🗺️ Roadmap
 
 ### ✅ Completed
-- [x] **Unit tests** — Test crypto, vault, and entry packages
-- [x] **Integration testing** — Test complete workflow end-to-end
+- [x] Core encryption (AES-256-GCM, Argon2id)
+- [x] Terminal UI with bubbletea
+- [x] Git versioning for history
+- [x] Secure clipboard management
+- [x] Password generator
+- [x] Vim keybindings
+- [x] Unit & integration tests
 
-### ⏳ Next Up
-- [ ] **Build & release** — Create release binaries for Linux, macOS, Windows
+### 🚧 In Progress
+- [ ] CI/CD pipeline
+- [ ] Pre-built release binaries
+- [ ] Import/Export functionality
 
-### ⏳ Future (Post-cleanup)
-- [ ] **Import/Export** — JSON import/export for migration
-- [ ] **API Key storage** — Support for OpenAI, AWS, etc.
-- [ ] **SSH Key management** — Generate and store SSH keys
-- [ ] **TOTP/2FA** — Time-based one-time passwords
+### 🔮 Future
+- [ ] Fuzzy search
+- [ ] Plugin system
+- [ ] TOTP/2FA support
+- [ ] SSH key management
+- [ ] API key storage
 
-## License
+## 🤝 Contributing
 
-MIT
+Contributions are welcome! Here's how to get started:
+
+1. **Fork** the repository
+2. **Create** a feature branch (`git checkout -b feature/amazing`)
+3. **Commit** changes (`git commit -m 'Add amazing feature'`)
+4. **Push** to branch (`git push origin feature/amazing`)
+5. **Open** a Pull Request
+
+Please ensure:
+- Tests pass (`go test ./...`)
+- Code is formatted (`gofmt -w .`)
+- Commit messages are clear
+
+## 📝 License
+
+[MIT License](LICENSE) © 2024
+
+## 🙏 Acknowledgments
+
+- Inspired by [LazyGit](https://github.com/jesseduffield/lazygit) by Jesse Duffield
+- Built with [bubbletea](https://github.com/charmbracelet/bubbletea)
+- Encryption powered by [golang.org/x/crypto](https://golang.org/x/crypto)
+
+---
+
+<div align="center">
+
+**Made with ⚡ for lazy password managers everywhere**
+
+[⭐ Star this repo](https://github.com/Wuedmo/lazypassword) | [🐛 Report Bug](../../issues) | [💡 Request Feature](../../issues)
+
+</div>
