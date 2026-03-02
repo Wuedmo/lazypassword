@@ -34,34 +34,40 @@ from .screens import APIKeysScreen
 
 class StatusBar(Static):
     """Status bar showing current vault state."""
-    
+
     vault_status = reactive("Locked")
     entry_count = reactive(0)
     last_action = reactive("")
     encryption_plugin = reactive("")
-    
+    current_theme = reactive("dark")
+
     def compose(self) -> ComposeResult:
         yield Horizontal(
             Label(f" 🔒 {self.vault_status}", id="status-vault"),
             Label(f" 📁 Entries: {self.entry_count}", id="status-count"),
             Label(f" 🔐 {self.encryption_plugin or 'No Plugin'}", id="status-encryption"),
+            Label(f" 🎨 {self.current_theme}", id="status-theme"),
             Label(f" 📋 {self.last_action}", id="status-action"),
             id="status-content",
         )
-    
-    def update_status(self, status: str, count: int = 0, action: str = "", encryption: str = "") -> None:
+
+    def update_status(self, status: str, count: int = 0, action: str = "", encryption: str = "", theme: str = "") -> None:
         """Update status bar display."""
         self.vault_status = status
         self.entry_count = count
         self.last_action = action
         self.encryption_plugin = encryption
+        if theme:
+            self.current_theme = theme
         vault_label = self.query_one("#status-vault", Label)
         count_label = self.query_one("#status-count", Label)
         action_label = self.query_one("#status-action", Label)
         encryption_label = self.query_one("#status-encryption", Label)
+        theme_label = self.query_one("#status-theme", Label)
         vault_label.update(f" 🔒 {status}")
         count_label.update(f" 📁 Entries: {count}")
         encryption_label.update(f" 🔐 {encryption}" if encryption else " 🔐 No Plugin")
+        theme_label.update(f" 🎨 {self.current_theme}")
         action_label.update(f" 📋 {action}" if action else "")
 
 
@@ -758,10 +764,13 @@ class LazyPasswordApp(App):
             except Exception:
                 pass
     
-    def _update_status(self, status: str, count: int = 0, action: str = "") -> None:
+    def _update_status(self, status: str, count: int = 0, action: str = "", theme: str = "") -> None:
         """Update status bar."""
         status_bar = self.query_one(StatusBar)
-        status_bar.update_status(status, count, action)
+        # Get current theme if not provided
+        if not theme and self.vault:
+            theme = self.vault.get_theme()
+        status_bar.update_status(status, count, action, theme=theme)
     
     def action_new_entry(self) -> None:
         """Create a new entry."""
@@ -921,8 +930,10 @@ class LazyPasswordApp(App):
     
     def _apply_theme(self, theme: str) -> None:
         """Apply the selected theme to the app."""
-        pass
-    
+        # Update status bar to show current theme
+        self._update_status("Unlocked", len(self._entries_cache) if self._entries_cache else 0, theme=theme)
+        # Note: Full theme application requires app restart due to Textual CSS limitations
+
     def _load_and_apply_theme(self) -> None:
         """Load theme from vault settings and apply it."""
         if self.vault:
