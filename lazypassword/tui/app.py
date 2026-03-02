@@ -5,7 +5,7 @@ import signal
 from typing import Optional, List
 
 from textual.app import App, ComposeResult
-from textual.containers import Container, Horizontal
+from textual.containers import Container, Horizontal, Vertical, VerticalScroll
 from textual.reactive import reactive
 from textual.timer import Timer
 from textual.widgets import (
@@ -15,6 +15,8 @@ from textual.widgets import (
     Header,
     Input,
     Label,
+    ListItem,
+    ListView,
     Static,
 )
 from textual.screen import Screen
@@ -23,6 +25,7 @@ from textual.screen import Screen
 from ..vault import Vault
 from ..entry import Entry
 from ..utils.clipboard import ClipboardManager
+from ..versioning import GitVersioning, VaultVersion
 
 
 class StatusBar(Static):
@@ -305,6 +308,24 @@ class ThemeSettingsScreen(Screen):
             self.dismiss(None)
 
 
+class HistoryPanel(Static):
+    """Panel showing git version history."""
+    
+    def compose(self) -> ComposeResult:
+        yield Label("📜 History", id="history-title")
+        yield ListView(id="history-list")
+    
+    def update_history(self, versions: list) -> None:
+        """Update the history list with versions."""
+        history_list = self.query_one("#history-list", ListView)
+        history_list.clear()
+        
+        for version in versions:
+            # Format: hash - message (time)
+            item_text = f"[{version.commit_hash}] {version.message}"
+            history_list.append(ListItem(Label(item_text, classes="history-item")))
+
+
 class LazyPasswordApp(App):
     """Main TUI application for LazyPassword."""
     
@@ -374,9 +395,44 @@ class LazyPasswordApp(App):
     Screen {
         align: center middle;
     }
+    #main-container {
+        width: 100%;
+        height: 100%;
+        layout: horizontal;
+    }
     #entry-list {
         height: 1fr;
+        width: 70%;
+    }
+    #history-panel {
+        width: 30%;
+        height: 1fr;
+        border: solid $primary-darken-2;
+        padding: 0 1;
+    }
+    #history-title {
+        text-style: bold;
+        text-align: center;
+        padding: 1 0;
+    }
+    #history-list {
+        height: 1fr;
         width: 100%;
+    }
+    .history-item {
+        padding: 0 1;
+        text-wrap: wrap;
+    }
+    .history-hash {
+        color: $primary-lighten-2;
+        text-style: bold;
+    }
+    .history-message {
+        color: $text;
+    }
+    .history-time {
+        color: $text-muted;
+        text-style: italic;
     }
     StatusBar {
         dock: bottom;
@@ -404,6 +460,8 @@ class LazyPasswordApp(App):
         ("u", "copy_username", "Copy Username"),
         ("/", "search", "Search"),
         ("t", "theme", "Theme"),
+        ("v", "toggle_history", "Toggle History"),
+        ("g", "show_history", "Git History"),
         ("l", "lock", "Lock"),
         ("h", "help", "Help"),
         ("q", "quit", "Quit"),
@@ -415,6 +473,7 @@ class LazyPasswordApp(App):
         self.vault_path = vault_path
         self.readonly = readonly
         self.vault: Optional[Vault] = None
+        self.versioning: Optional[GitVersioning] = None
         self._locked = True
         self._clipboard_timer: Optional[Timer] = None
         self._inactivity_timer: Optional[Timer] = None
@@ -423,14 +482,17 @@ class LazyPasswordApp(App):
         self._clipboard_content: Optional[str] = None
         self._clipboard_mgr = ClipboardManager()
         self._entries_cache: List[Entry] = []
+        self._show_history = True
     
     def compose(self) -> ComposeResult:
         """Compose the main UI."""
         yield Header()
-        yield DataTable(id="entry-list")
+        with Container(id="main-container"):
+            yield DataTable(id="entry-list")
+            yield HistoryPanel(id="history-panel")
         yield Footer()
         yield StatusBar()
-        
+
         # Bind SIGINT handler for graceful shutdown
         signal.signal(signal.SIGINT, self._signal_handler)
     
@@ -453,9 +515,16 @@ class LazyPasswordApp(App):
                 self.vault.create(password)
                 self.vault.unlock(password)
                 self._locked = False
+                
+                # Initialize versioning
+                self.versioning = GitVersioning(self.vault_path)
+                self.versioning.initialize()
+                self.versioning.commit("Initial vault creation")
+                
                 self._load_and_apply_theme()
                 self._start_timers()
                 self._refresh_entry_list()
+                self._refresh_history()
                 self._update_status("Unlocked", len(self._entries_cache))
             except Exception as e:
                 self.notify(f"Failed to create vault: {e}", severity="error")
@@ -470,9 +539,17 @@ class LazyPasswordApp(App):
                 self.vault = Vault(self.vault_path)
                 if self.vault.unlock(password):
                     self._locked = False
+                    
+                    # Initialize versioning
+                    self.versioning = GitVersioning(self.vault_path)
+                    if not self.versioning.is_initialized():
+                        self.versioning.initialize()
+                        self.versioning.commit("Initialize versioning for existing vault")
+                    
                     self._load_and_apply_theme()
                     self._start_timers()
                     self._refresh_entry_list()
+                    self._refresh_history()
                     self._update_status("Unlocked", len(self._entries_cache))
                 else:
                     self.notify("Incorrect password", severity="error")
@@ -515,6 +592,27 @@ class LazyPasswordApp(App):
             tags = ", ".join(entry.tags) if entry.tags else ""
             table.add_row(entry.title, entry.username, entry.url, tags)
     
+    def _refresh_history(self) -> None:
+        """Refresh the history panel."""
+        if not self.versioning:
+            return
+        
+        try:
+            versions = self.versioning.get_history(limit=20)
+            history_panel = self.query_one("#history-panel", HistoryPanel)
+            history_panel.update_history(versions)
+        except Exception:
+            pass  # Silently fail if git not available
+    
+    def _commit_vault_change(self, message: str) -> None:
+        """Commit vault changes to git."""
+        if self.versioning:
+            try:
+                self.versioning.commit(message)
+                self._refresh_history()
+            except Exception:
+                pass  # Silently fail if git commit fails
+    
     def _update_status(self, status: str, count: int = 0, action: str = "") -> None:
         """Update status bar."""
         status_bar = self.query_one(StatusBar)
@@ -552,6 +650,11 @@ class LazyPasswordApp(App):
                 self.vault.add_entry(entry_dict)
             
             self.vault.save()
+            
+            # Commit to git
+            action = "Updated" if existing else "Added"
+            self._commit_vault_change(f"{action} entry: {entry.title}")
+            
             self._refresh_entry_list()
             self._update_status("Unlocked", len(self._entries_cache), "Entry saved")
     
@@ -572,8 +675,19 @@ class LazyPasswordApp(App):
     def _on_delete_confirmed(self, confirmed: bool, entry_id: str) -> None:
         """Handle delete confirmation."""
         if confirmed and self.vault:
+            # Get entry title before deleting
+            entry_title = "Unknown"
+            for e in self._entries_cache:
+                if e.id == entry_id:
+                    entry_title = e.title
+                    break
+            
             self.vault.delete_entry(entry_id)
             self.vault.save()
+            
+            # Commit to git
+            self._commit_vault_change(f"Deleted entry: {entry_title}")
+            
             self._refresh_entry_list()
             self._update_status("Unlocked", len(self._entries_cache), "Entry deleted")
     
@@ -655,6 +769,8 @@ class LazyPasswordApp(App):
             "u - Copy username\n"
             "/ - Search\n"
             "t - Theme settings\n"
+            "v - Toggle history panel\n"
+            "g - Show git history\n"
             "l - Lock vault\n"
             "h - Help\n"
             "q - Quit",
@@ -692,6 +808,37 @@ class LazyPasswordApp(App):
             self.vault.save()
             self._apply_theme(theme)
             self.notify(f"Theme changed to {theme}", severity="information")
+    
+    def action_toggle_history(self) -> None:
+        """Toggle history panel visibility."""
+        self._show_history = not self._show_history
+        history_panel = self.query_one("#history-panel", HistoryPanel)
+        entry_list = self.query_one("#entry-list", DataTable)
+        
+        if self._show_history:
+            history_panel.styles.display = "block"
+            entry_list.styles.width = "70%"
+        else:
+            history_panel.styles.display = "none"
+            entry_list.styles.width = "100%"
+    
+    def action_show_history(self) -> None:
+        """Show full git history screen."""
+        if self._locked or not self.vault or not self.versioning:
+            return
+        
+        try:
+            versions = self.versioning.get_history(limit=50)
+            if versions:
+                history_text = "Git History:\n\n"
+                for v in versions:
+                    history_text += f"[{v.commit_hash}] {v.message}\n"
+                    history_text += f"    {v.timestamp} by {v.author}\n\n"
+                self.notify(history_text, severity="information", timeout=15)
+            else:
+                self.notify("No history available", severity="warning")
+        except Exception as e:
+            self.notify(f"Failed to load history: {e}", severity="error")
     
     def on_unmount(self) -> None:
         """Cleanup on exit."""
