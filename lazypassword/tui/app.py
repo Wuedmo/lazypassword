@@ -28,6 +28,7 @@ from ..utils.clipboard import ClipboardManager
 from ..versioning import GitVersioning, VaultVersion
 from ..ssh_manager import SSHManager
 from ..import_export import VaultExporter, VaultImporter, DuplicateHandling, ImportFormat
+from .screens import APIKeysScreen
 
 
 class StatusBar(Static):
@@ -601,6 +602,7 @@ class LazyPasswordApp(App):
         ("u", "copy_username", "Copy Username"),
         ("/", "search", "Search"),
         ("t", "theme", "Theme"),
+        ("a", "api_keys", "API Keys"),
         ("v", "toggle_history", "Toggle History"),
         ("g", "show_history", "Git History"),
         ("l", "lock", "Lock"),
@@ -897,6 +899,7 @@ class LazyPasswordApp(App):
             "u - Copy username\n"
             "/ - Search\n"
             "t - Theme settings\n"
+            "a - API Keys\n"
             "v - Toggle history panel\n"
             "g - Show git history\n"
             "l - Lock vault\n"
@@ -935,6 +938,13 @@ class LazyPasswordApp(App):
             self.vault.save()
             self._apply_theme(theme)
             self.notify(f"Theme changed to {theme}", severity="information")
+    
+    def action_api_keys(self) -> None:
+        """Open API keys management screen."""
+        if self._locked or not self.vault:
+            return
+        
+        self.push_screen(APIKeysScreen())
     
     def action_toggle_history(self) -> None:
         """Toggle history panel visibility."""
