@@ -268,14 +268,14 @@ mypy lazypassword/
 ## 🗺️ Roadmap
 
 - [x] v1.0 — Core TUI, encryption, CRUD
-- [ ] Git versioning for vault history
-- [ ] Remote sync (optional, encrypted)
+- [x] Git versioning for vault history
+- [x] Theming (7 themes, persistent)
 - [ ] Keyfile support
 - [ ] TOTP/2FA support
-- [ ] Plugin system
-- [ ] Theming
 - [ ] JSON import/export
 - [ ] SSH key storage
+- [ ] Plugin system
+- [ ] Remote sync (optional, encrypted) — postponed
 
 ---
 
