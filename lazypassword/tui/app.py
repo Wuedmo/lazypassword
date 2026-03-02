@@ -2,7 +2,7 @@
 
 import os
 import signal
-from typing import Optional
+from typing import Optional, List
 
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal
@@ -22,6 +22,7 @@ from textual.screen import Screen
 # Assume vault module exists
 from ..vault import Vault
 from ..entry import Entry
+from ..utils.clipboard import ClipboardManager
 
 
 class StatusBar(Static):
@@ -72,7 +73,7 @@ class FirstRunScreen(Screen):
             yield Label("Welcome to LazyPassword! 🔐", classes="title")
             yield Label("No vault found. Create a new vault to get started.")
             yield Label("")
-            yield Label("Set a master password:")
+            yield Label("Set a master password (min 12 chars):")
             yield Input(placeholder="Enter master password...", password=True, id="password-input")
             yield Label("")
             yield Button("Create Vault", id="create-btn", variant="primary")
@@ -82,9 +83,10 @@ class FirstRunScreen(Screen):
         if event.button.id == "create-btn":
             password_input = self.query_one("#password-input", Input)
             password = password_input.value
-            if password:
+            if len(password) >= 12:
                 self.dismiss(password)
             else:
+                self.app.notify("Password must be at least 12 characters", severity="error")
                 password_input.focus()
 
 
@@ -257,10 +259,11 @@ class LazyPasswordApp(App):
         ("q", "quit", "Quit"),
     ]
     
-    def __init__(self, vault_path: str) -> None:
+    def __init__(self, vault_path: str, readonly: bool = False) -> None:
         """Initialize the application."""
         super().__init__()
         self.vault_path = vault_path
+        self.readonly = readonly
         self.vault: Optional[Vault] = None
         self._locked = True
         self._clipboard_timer: Optional[Timer] = None
@@ -268,6 +271,8 @@ class LazyPasswordApp(App):
         self._clipboard_clear_delay = 30  # seconds
         self._auto_lock_delay = 600  # seconds (10 minutes)
         self._clipboard_content: Optional[str] = None
+        self._clipboard_mgr = ClipboardManager()
+        self._entries_cache: List[Entry] = []
     
     def compose(self) -> ComposeResult:
         """Compose the main UI."""
@@ -294,11 +299,13 @@ class LazyPasswordApp(App):
         """Handle first run password entry."""
         if password:
             try:
-                self.vault = Vault.create(self.vault_path, password)
+                self.vault = Vault(self.vault_path)
+                self.vault.create(password)
+                self.vault.unlock(password)
                 self._locked = False
                 self._start_timers()
                 self._refresh_entry_list()
-                self._update_status("Unlocked", len(self.vault.entries))
+                self._update_status("Unlocked", len(self._entries_cache))
             except Exception as e:
                 self.notify(f"Failed to create vault: {e}", severity="error")
                 self.exit()
@@ -309,11 +316,15 @@ class LazyPasswordApp(App):
         """Handle unlock attempt."""
         if password:
             try:
-                self.vault = Vault.load(self.vault_path, password)
-                self._locked = False
-                self._start_timers()
-                self._refresh_entry_list()
-                self._update_status("Unlocked", len(self.vault.entries))
+                self.vault = Vault(self.vault_path)
+                if self.vault.unlock(password):
+                    self._locked = False
+                    self._start_timers()
+                    self._refresh_entry_list()
+                    self._update_status("Unlocked", len(self._entries_cache))
+                else:
+                    self.notify("Incorrect password", severity="error")
+                    self.push_screen(UnlockScreen(), callback=self._on_unlock)
             except Exception as e:
                 self.notify(f"Failed to unlock vault: {e}", severity="error")
                 self.push_screen(UnlockScreen(), callback=self._on_unlock)
@@ -331,16 +342,24 @@ class LazyPasswordApp(App):
         # In real implementation, track last activity timestamp
         pass  # Placeholder for inactivity checking
     
+    def _get_entries(self) -> List[Entry]:
+        """Get entries from vault as Entry objects."""
+        if not self.vault:
+            return []
+        entry_dicts = self.vault.get_entries()
+        return [Entry.from_dict(e) for e in entry_dicts]
+    
     def _refresh_entry_list(self) -> None:
         """Refresh the entry list display."""
         if not self.vault:
             return
         
+        self._entries_cache = self._get_entries()
         table = self.query_one("#entry-list", DataTable)
         table.clear()
         table.add_columns("Title", "Username", "URL", "Tags")
         
-        for entry in self.vault.entries:
+        for entry in self._entries_cache:
             tags = ", ".join(entry.tags) if entry.tags else ""
             table.add_row(entry.title, entry.username, entry.url, tags)
     
@@ -363,25 +382,26 @@ class LazyPasswordApp(App):
         
         table = self.query_one("#entry-list", DataTable)
         cursor = table.cursor_coordinate
-        if cursor is not None and cursor.row < len(self.vault.entries):
-            entry = self.vault.entries[cursor.row]
+        if cursor is not None and cursor.row < len(self._entries_cache):
+            entry = self._entries_cache[cursor.row]
             self.push_screen(EntryEditScreen(entry), callback=self._on_entry_saved)
     
     def _on_entry_saved(self, entry: Optional[Entry]) -> None:
         """Handle entry save."""
         if entry and self.vault:
+            entry_dict = entry.to_dict()
             existing = False
-            for i, e in enumerate(self.vault.entries):
+            for i, e in enumerate(self._entries_cache):
                 if e.id == entry.id:
-                    self.vault.entries[i] = entry
+                    self.vault.update_entry(entry.id, entry_dict)
                     existing = True
                     break
             if not existing:
-                self.vault.entries.append(entry)
+                self.vault.add_entry(entry_dict)
             
             self.vault.save()
             self._refresh_entry_list()
-            self._update_status("Unlocked", len(self.vault.entries), "Entry saved")
+            self._update_status("Unlocked", len(self._entries_cache), "Entry saved")
     
     def action_delete_entry(self) -> None:
         """Delete selected entry."""
@@ -390,8 +410,8 @@ class LazyPasswordApp(App):
         
         table = self.query_one("#entry-list", DataTable)
         cursor = table.cursor_coordinate
-        if cursor is not None and cursor.row < len(self.vault.entries):
-            entry = self.vault.entries[cursor.row]
+        if cursor is not None and cursor.row < len(self._entries_cache):
+            entry = self._entries_cache[cursor.row]
             self.push_screen(
                 ConfirmScreen(f"Delete entry '{entry.title}'?"),
                 callback=lambda confirmed: self._on_delete_confirmed(confirmed, entry.id)
@@ -400,10 +420,10 @@ class LazyPasswordApp(App):
     def _on_delete_confirmed(self, confirmed: bool, entry_id: str) -> None:
         """Handle delete confirmation."""
         if confirmed and self.vault:
-            self.vault.entries = [e for e in self.vault.entries if e.id != entry_id]
+            self.vault.delete_entry(entry_id)
             self.vault.save()
             self._refresh_entry_list()
-            self._update_status("Unlocked", len(self.vault.entries), "Entry deleted")
+            self._update_status("Unlocked", len(self._entries_cache), "Entry deleted")
     
     def action_copy_password(self) -> None:
         """Copy password of selected entry to clipboard."""
@@ -412,10 +432,10 @@ class LazyPasswordApp(App):
         
         table = self.query_one("#entry-list", DataTable)
         cursor = table.cursor_coordinate
-        if cursor is not None and cursor.row < len(self.vault.entries):
-            entry = self.vault.entries[cursor.row]
+        if cursor is not None and cursor.row < len(self._entries_cache):
+            entry = self._entries_cache[cursor.row]
             self._copy_to_clipboard(entry.password)
-            self._update_status("Unlocked", len(self.vault.entries), "Password copied")
+            self._update_status("Unlocked", len(self._entries_cache), "Password copied")
     
     def action_copy_username(self) -> None:
         """Copy username of selected entry to clipboard."""
@@ -424,27 +444,14 @@ class LazyPasswordApp(App):
         
         table = self.query_one("#entry-list", DataTable)
         cursor = table.cursor_coordinate
-        if cursor is not None and cursor.row < len(self.vault.entries):
-            entry = self.vault.entries[cursor.row]
+        if cursor is not None and cursor.row < len(self._entries_cache):
+            entry = self._entries_cache[cursor.row]
             self._copy_to_clipboard(entry.username)
-            self._update_status("Unlocked", len(self.vault.entries), "Username copied")
+            self._update_status("Unlocked", len(self._entries_cache), "Username copied")
     
     def _copy_to_clipboard(self, text: str) -> None:
         """Copy text to clipboard with auto-clear."""
-        # Try to use pyperclip or similar
-        try:
-            import pyperclip
-            pyperclip.copy(text)
-        except ImportError:
-            # Fallback: try xclip/xsel on Linux
-            try:
-                import subprocess
-                proc = subprocess.Popen(["xclip", "-selection", "clipboard"], 
-                                       stdin=subprocess.PIPE)
-                proc.communicate(text.encode())
-            except:
-                pass  # Clipboard not available
-        
+        self._clipboard_mgr.copy(text)
         self._clipboard_content = text
         
         # Clear clipboard after timeout
@@ -456,18 +463,9 @@ class LazyPasswordApp(App):
     def _clear_clipboard(self) -> None:
         """Clear clipboard."""
         if self._clipboard_content:
-            try:
-                import pyperclip
-                pyperclip.copy("")
-            except ImportError:
-                try:
-                    import subprocess
-                    subprocess.Popen(["xclip", "-selection", "clipboard"], 
-                                    stdin=subprocess.PIPE).communicate(b"")
-                except:
-                    pass
+            self._clipboard_mgr.clear()
             self._clipboard_content = None
-            self._update_status("Unlocked", len(self.vault.entries) if self.vault else 0, 
+            self._update_status("Unlocked", len(self._entries_cache) if self.vault else 0, 
                               "Clipboard cleared")
     
     def action_search(self) -> None:
@@ -478,6 +476,8 @@ class LazyPasswordApp(App):
     def action_lock(self) -> None:
         """Lock vault and exit gracefully."""
         self._locked = True
+        if self.vault:
+            self.vault.lock()
         self.vault = None
         
         # Clear clipboard
@@ -517,6 +517,8 @@ class LazyPasswordApp(App):
         """Cleanup on exit."""
         # Ensure vault is locked
         self._locked = True
+        if self.vault:
+            self.vault.lock()
         self.vault = None
         
         # Clear clipboard
