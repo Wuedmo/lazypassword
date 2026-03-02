@@ -79,12 +79,14 @@ The Go version trades theming for simplicity and speed. One binary, zero depende
 - [x] Clipboard integration with auto-clear
 - [x] Password generator
 - [x] Search/filter
+- [x] Repository cleanup — Removed Python code
+
+### ✅ Completed
+- [x] **Unit tests** — Test crypto, vault, and entry packages
+- [x] **Integration testing** — Test complete workflow end-to-end
 
 ### ⏳ Next Up
-- [ ] **Unit tests** — Test crypto, vault, and entry packages
-- [ ] **Integration testing** — Test complete workflow end-to-end
 - [ ] **Build & release** — Create release binaries for Linux, macOS, Windows
-- [ ] **Repository cleanup** — Remove old Python code and unused libraries
 
 ### ⏳ Future (Post-cleanup)
 - [ ] **Import/Export** — JSON import/export for migration
