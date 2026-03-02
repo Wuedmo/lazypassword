@@ -25,7 +25,7 @@ def main():
         vault_path.parent.mkdir(parents=True, exist_ok=True)
         
         # Import and launch the app
-        from .app import LazyPasswordApp
+        from .tui.app import LazyPasswordApp
         
         app = LazyPasswordApp(
             vault_path=vault_path,
