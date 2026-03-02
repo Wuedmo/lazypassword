@@ -81,6 +81,7 @@ class Vault:
             "settings": {
                 "auto_lock_timeout": 300,  # 5 minutes
                 "clipboard_clear_delay": 30,  # 30 seconds
+                "theme": "dark",  # default theme
             }
         }
         
@@ -279,6 +280,46 @@ class Vault:
                 results.append(entry)
         
         return results
+    
+    def get_setting(self, key: str, default: Any = None) -> Any:
+        """
+        Get a setting value from the vault.
+        
+        Args:
+            key: Setting key
+            default: Default value if key not found
+            
+        Returns:
+            Setting value or default
+        """
+        self._ensure_unlocked()
+        return self._data.get("settings", {}).get(key, default)
+    
+    def set_setting(self, key: str, value: Any) -> None:
+        """
+        Set a setting value in the vault.
+        
+        Args:
+            key: Setting key
+            value: Setting value
+        """
+        self._ensure_unlocked()
+        if "settings" not in self._data:
+            self._data["settings"] = {}
+        self._data["settings"][key] = value
+    
+    def get_theme(self) -> str:
+        """Get the current theme name."""
+        return self.get_setting("theme", "dark")
+    
+    def set_theme(self, theme: str) -> None:
+        """
+        Set the theme name.
+        
+        Args:
+            theme: Theme name (e.g., 'dark', 'light', 'nord', etc.)
+        """
+        self.set_setting("theme", theme)
     
     def save(self) -> None:
         """

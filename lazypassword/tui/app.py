@@ -250,10 +250,126 @@ class ConfirmScreen(Screen[bool]):
             self.dismiss(False)
 
 
+class ThemeSettingsScreen(Screen):
+    """Screen for selecting and configuring themes."""
+    
+    DEFAULT_CSS = """
+    ThemeSettingsScreen {
+        align: center middle;
+    }
+    #theme-container {
+        width: 60;
+        height: auto;
+        border: solid purple;
+        padding: 1 2;
+    }
+    #theme-list {
+        width: 100%;
+        height: auto;
+    }
+    """
+    
+    THEMES = ["dark", "light", "nord", "dracula", "monokai", "solarized-dark", "solarized-light"]
+    
+    def __init__(self, current_theme: str = "dark") -> None:
+        super().__init__()
+        self.current_theme = current_theme
+    
+    def compose(self) -> ComposeResult:
+        with Container(id="theme-container"):
+            yield Label("🎨 Theme Settings", classes="title")
+            yield Label("")
+            yield Label(f"Current theme: {self.current_theme}")
+            yield Label("")
+            yield Label("Select theme:")
+            
+            for theme in self.THEMES:
+                selected = " ✓" if theme == self.current_theme else ""
+                yield Button(f"{theme}{selected}", id=f"theme-{theme}")
+            
+            yield Label("")
+            yield Button("Close", id="close-btn", variant="primary")
+    
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle theme selection."""
+        button_id = event.button.id
+        if button_id == "close-btn":
+            self.dismiss(None)
+        elif button_id and button_id.startswith("theme-"):
+            theme = button_id.replace("theme-", "")
+            self.dismiss(theme)
+    
+    def on_key(self, event) -> None:
+        """Handle Escape to close."""
+        if event.key == "escape":
+            self.dismiss(None)
+
+
 class LazyPasswordApp(App):
     """Main TUI application for LazyPassword."""
     
     TITLE = "LazyPassword"
+    
+    # Theme CSS definitions
+    THEME_CSS = {
+        "dark": """
+        /* Default dark theme - already applied */
+        """,
+        "light": """
+        Screen { background: #f5f5f5; color: #333; }
+        DataTable { background: #ffffff; color: #333; }
+        StatusBar { background: #e0e0e0; color: #333; }
+        Header { background: #1976d2; color: white; }
+        Input { background: #ffffff; color: #333; }
+        Button { background: #1976d2; color: white; }
+        """,
+        "nord": """
+        Screen { background: #2e3440; color: #d8dee9; }
+        DataTable { background: #3b4252; color: #d8dee9; }
+        StatusBar { background: #434c5e; color: #d8dee9; }
+        Header { background: #5e81ac; color: #eceff4; }
+        Input { background: #3b4252; color: #d8dee9; }
+        Button { background: #5e81ac; color: #eceff4; }
+        .title { color: #88c0d0; }
+        """,
+        "dracula": """
+        Screen { background: #282a36; color: #f8f8f2; }
+        DataTable { background: #44475a; color: #f8f8f2; }
+        StatusBar { background: #44475a; color: #f8f8f2; }
+        Header { background: #bd93f9; color: #282a36; }
+        Input { background: #44475a; color: #f8f8f2; }
+        Button { background: #bd93f9; color: #282a36; }
+        .title { color: #ff79c6; }
+        """,
+        "monokai": """
+        Screen { background: #272822; color: #f8f8f2; }
+        DataTable { background: #383830; color: #f8f8f2; }
+        StatusBar { background: #49483e; color: #f8f8f2; }
+        Header { background: #a6e22e; color: #272822; }
+        Input { background: #383830; color: #f8f8f2; }
+        Button { background: #a6e22e; color: #272822; }
+        .title { color: #66d9ef; }
+        """,
+        "solarized-dark": """
+        Screen { background: #002b36; color: #839496; }
+        DataTable { background: #073642; color: #839496; }
+        StatusBar { background: #073642; color: #839496; }
+        Header { background: #268bd2; color: #fdf6e3; }
+        Input { background: #073642; color: #839496; }
+        Button { background: #268bd2; color: #fdf6e3; }
+        .title { color: #2aa198; }
+        """,
+        "solarized-light": """
+        Screen { background: #fdf6e3; color: #586e75; }
+        DataTable { background: #eee8d5; color: #586e75; }
+        StatusBar { background: #eee8d5; color: #586e75; }
+        Header { background: #268bd2; color: #fdf6e3; }
+        Input { background: #eee8d5; color: #586e75; }
+        Button { background: #268bd2; color: #fdf6e3; }
+        .title { color: #2aa198; }
+        """,
+    }
+    
     CSS = """
     Screen {
         align: center middle;
@@ -287,6 +403,7 @@ class LazyPasswordApp(App):
         ("c", "copy_password", "Copy Password"),
         ("u", "copy_username", "Copy Username"),
         ("/", "search", "Search"),
+        ("t", "theme", "Theme"),
         ("l", "lock", "Lock"),
         ("h", "help", "Help"),
         ("q", "quit", "Quit"),
@@ -336,6 +453,7 @@ class LazyPasswordApp(App):
                 self.vault.create(password)
                 self.vault.unlock(password)
                 self._locked = False
+                self._load_and_apply_theme()
                 self._start_timers()
                 self._refresh_entry_list()
                 self._update_status("Unlocked", len(self._entries_cache))
@@ -352,6 +470,7 @@ class LazyPasswordApp(App):
                 self.vault = Vault(self.vault_path)
                 if self.vault.unlock(password):
                     self._locked = False
+                    self._load_and_apply_theme()
                     self._start_timers()
                     self._refresh_entry_list()
                     self._update_status("Unlocked", len(self._entries_cache))
@@ -535,6 +654,7 @@ class LazyPasswordApp(App):
             "c - Copy password\n"
             "u - Copy username\n"
             "/ - Search\n"
+            "t - Theme settings\n"
             "l - Lock vault\n"
             "h - Help\n"
             "q - Quit",
@@ -545,6 +665,33 @@ class LazyPasswordApp(App):
     def action_quit(self) -> None:
         """Quit the application."""
         self.action_lock()
+    
+    def _apply_theme(self, theme: str) -> None:
+        """Apply the selected theme to the app."""
+        if theme in self.THEME_CSS:
+            self.stylesheet.add_css(self.THEME_CSS[theme])
+    
+    def _load_and_apply_theme(self) -> None:
+        """Load theme from vault settings and apply it."""
+        if self.vault:
+            theme = self.vault.get_theme()
+            self._apply_theme(theme)
+    
+    def action_theme(self) -> None:
+        """Open theme settings."""
+        if self._locked or not self.vault:
+            return
+        
+        current_theme = self.vault.get_theme()
+        self.push_screen(ThemeSettingsScreen(current_theme), callback=self._on_theme_selected)
+    
+    def _on_theme_selected(self, theme: Optional[str]) -> None:
+        """Handle theme selection."""
+        if theme and self.vault:
+            self.vault.set_theme(theme)
+            self.vault.save()
+            self._apply_theme(theme)
+            self.notify(f"Theme changed to {theme}", severity="information")
     
     def on_unmount(self) -> None:
         """Cleanup on exit."""
